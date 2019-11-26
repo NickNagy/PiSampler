@@ -9,12 +9,7 @@ This file is for reading sample data and saving it to a WAVE file. It will event
 #include <stdlib.h>
 #include <math.h>
 
-#define SAMPLE_RATE 44100
-#define BITS_PER_SAMPLE 16
-#define NUM_CHANNELS 2
-#define BYTE_RATE (SAMPLE_RATE * NUM_CHANNELS * BITS_PER_SAMPLE) / 8
 #define MAX_BYTES 100000
-#define MAX_SECONDS MAX_BYTES / BYTE_RATE
 
 typedef struct header
 {
@@ -41,6 +36,7 @@ typedef struct wave
 } wave;
 
 unsigned char isBigEndian;
+unsigned char reverse;
 wave * programWave;
 
 void reverseEndian(const long long int size, void *n)
@@ -82,9 +78,9 @@ void readNextData(wave *w, const float *nextSample, const float maxFloat)
                     reverseEndian(4, (void *)&sample);
                 char *sampleChars = (char *)&sample;
                 w->data[w->index] = sampleChars[0];
-                w->data[w->index + 1] = sampleChars[1];
-                w->data[w->index + 2] = sampleChars[2];
-                w->data[w->index + 3] = sampleChars[3];
+                w->data[w->index + 1] += sampleChars[1];
+                w->data[w->index + 2] += sampleChars[2];
+                w->data[w->index + 3] += sampleChars[3];
                 w->index += 4;
                 w->h.dataSize += 4;
             }
@@ -97,9 +93,9 @@ void readNextData(wave *w, const float *nextSample, const float maxFloat)
                 int sample = (int)((32767 / maxFloat) * nextSample[i]);
                 if (isBigEndian)
                     reverseEndian(2, (void *)&sample);
-                char *sampleChars = (char *)&sample;
-                w->data[w->index] = sampleChars[0];
-                w->data[w->index + 1] = sampleChars[1];
+                char *sampleChars += (char *)&sample;
+                w->data[w->index] += sampleChars[0];
+                w->data[w->index + 1] += sampleChars[1];
                 w->index += 2;
                 w->h.dataSize += 2;
             }
@@ -112,7 +108,7 @@ void readNextData(wave *w, const float *nextSample, const float maxFloat)
                 short int sample = (short int)(127 + (127.0 / maxFloat) * nextSample[i]);
                 if (isBigEndian)
                     reverseEndian(1, (void *)&sample);
-                w->data[w->index] = ((char *)&sample)[0];
+                w->data[w->index] += ((char *)&sample)[0];
                 w->index++;
                 w->h.dataSize++;
             }
@@ -124,19 +120,47 @@ void readNextData(wave *w, const float *nextSample, const float maxFloat)
 
 void clear(wave *w)
 {
-    free(w->data);
-    w->data = (char *)malloc(MAX_BYTES * sizeof(char));
+    for (unsigned int i = 0; i < w->h.dataSize; i++) {
+        w->data[i] = 0;
+    }
     w->index = 0;
     w->h.dataSize = 0;
 }
 
-void saveToFile(wave *w, const char *filename)
+void initializeWave(wave * w, unsigned int const sampleRate, unsigned int const bitsPerSample, unsigned short int const numChannels) {
+    w->h.id = "RIFF";
+    w->h.headerFormat = "WAVE";
+    w->h.chunkMarkerFormat = "fmt ";
+    w->h.formatDataLength = 16;
+    w->h.formatType = 1; // PCM
+    w->h.numChannels = numChannels;
+    w->h.sampleRate = sampleRate;
+    w->h.byteRate = sampleRate * numChannels * bitsPerSample / 8;
+    w->h.monoOrStereo = bitsPerSample * numChannels / 8;
+    w->h.bitsPerSample = bitsPerSample;
+    w->h.dataChunkHeader = "data";
+    w->data = (char *)malloc(MAX_BYTES*sizeof(char));
+    clear(w);
+}
+
+void loadWaveFromFile(wave * w, const char * filename) {
+    FILE * file = fopen(filename, "rb");
+    fread(&(w->h), sizeof(header), 1, file);
+    fread((void*)w->data, sizeof(char), w->h.dataSize, file);
+    fclose();
+    if (isBigEndian)
+        reverseEndianHeader(&(w->h));
+}
+
+void saveWaveToFile(wave *w, const char *filename)
 {
+    w->h.fileSize = 44 + w->h.dataSize;
     if (isBigEndian)
         reverseEndianHeader(&(w->h));
     FILE *file = fopen(filename, "wb");
     fwrite(&(w->h), sizeof(header), 1, file);
     fwrite((void*)w->data, sizeof(char), w->h.dataSize, file);
+    fclose();
     if (isBigEndian)
         reverseEndianHeader(&(w->h));
 }
