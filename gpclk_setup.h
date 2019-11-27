@@ -8,21 +8,24 @@ Setting GPIO clocks using BCM2835 ARM Peripherals Guide.
 #include <stdio.h>
 #include <stdbool.h>
 
+// for Pi 3?
+#define BCM_BASE 0xF2000000 //0x7E000000
+
 // clock function select register for GPCLK0, GPCLK1, GPCLK2
-#define GPFSEL_REG 0x7E200000
+#define GPFSEL_REG (BCM_BASE + 0x200000)//0x7E200000
 
 // input for *GPFSEL_REG. Sets all 3 to clock function
 #define CLOCKS_FSEL 0x049000
 
 // clock control
-#define CM_GP0CTL 0x7e101070
-#define CM_GP1CTL 0x7e101078
-#define CM_GP2CTL 0x73101080
+#define CM_GP0CTL (BCM_BASE + 0x101070)//0x7e101070
+#define CM_GP1CTL (BCM_BASE + 0x101078)//0x7e101078
+#define CM_GP2CTL (BCM_BASE + 0x101080)//0x7e101080
 
 // clock divisors
-#define CM_GP0DIV 0x7e101074
-#define CM_GP1DIV 0x7e10107c
-#define CM_GP2DIV 0x7e101084
+#define CM_GP0DIV (BCM_BASE + 0x101074)//0x7e101074
+#define CM_GP1DIV (BCM_BASE - 0x10107c)//0x7e10107c
+#define CM_GP2DIV (BCM_BASE - 0x101084)//0x7e101084
 
 #define PASSWD 0x5A000000
 #define MASH 512

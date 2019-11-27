@@ -1,10 +1,13 @@
+
 /* Nick Nagy
 Setting GPIO clocks using BCM2835 ARM Peripherals Guide.
 */
 
+#include <fcntl.h>
+#include <sys/mman.h>
 #include "gpclk_setup.h"
 
-bool clock_is_busy(int * clock_ctrl_reg) {
+/*bool clock_is_busy(int * clock_ctrl_reg) {
     return (((*clock_ctrl_reg)>>7) & 1);
 }
 
@@ -53,11 +56,19 @@ void init_clocks() {//unsigned int mclk_freq) {
         *lrclk_div_reg = PASSWD;
         clocks_initialized = 1;
     }
-}
+}*/
 
 int main() {
-    init_clocks();
-    set_clock_freqs(MCLK_FREQ);
+    //init_clocks();
+    //set_clock_freqs(MCLK_FREQ);
+    int fdgpio = open("/dev/gpiomem", O_RDWR);
+    if (fdgpio < 0) {
+        printf("Failure.\n"); 
+    }
+    unsigned int * gpio_clk_ctrl = mmap((int *)CM_GP0CTL, 20, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
+    unsigned int * gpio = mmap((int *)GPFSEL_REG, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE, fdgpio, 0);
+    printf("gpio clock control is mapped at address %p\n", gpio_clk_ctrl);
+    printf("gpiomem is mapped at address %p\n", gpio);
     return 0;
 }
 
