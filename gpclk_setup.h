@@ -20,7 +20,7 @@ Setting GPIO clocks using BCM2835 ARM Peripherals Guide.
 #define CLK_CTRL_BASE_PAGESIZE 20
 
 // input for *GPFSEL0. Sets all 3 GPCLKs to their clock function
-#define CLOCK_FSEL_BITS 0x124000
+#define CLOCK_FSEL_BITS (4<<18) + (4<<15) + (4<<12)//0x124000
 
 #define MCLK_IDX 0
 #define SCLK_IDX 2
