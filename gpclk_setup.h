@@ -7,25 +7,32 @@ Setting GPIO clocks using BCM2835 ARM Peripherals Guide.
 
 #include <stdio.h>
 #include <stdbool.h>
+//#include <time.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/mman.h>
 
-// for Pi 3?
-#define BCM_BASE 0xF2000000 //0x7E000000
+//#define BCM_BASE 0x20000000 // <- for Pi 2
+#define BCM_BASE 0xF2000000 // <- for Pi 3
 
 // clock function select register for GPCLK0, GPCLK1, GPCLK2
-#define GPFSEL_REG (BCM_BASE + 0x200000)//0x7E200000
+#define CLK_CTRL_BASE (BCM_BASE + 0x101070)
+#define CLK_CTRL_BASE_PAGESIZE 20
 
-// input for *GPFSEL_REG. Sets all 3 to clock function
-#define CLOCKS_FSEL 0x049000
+// input for *GPFSEL0. Sets all 3 GPCLKs to their clock function
+#define CLOCK_FSEL_BITS 0x124000
 
-// clock control
-#define CM_GP0CTL (BCM_BASE + 0x101070)//0x7e101070
-#define CM_GP1CTL (BCM_BASE + 0x101078)//0x7e101078
-#define CM_GP2CTL (BCM_BASE + 0x101080)//0x7e101080
+#define MCLK_IDX 0
+#define SCLK_IDX 2
+#define LRCLK_IDX 4
 
-// clock divisors
-#define CM_GP0DIV (BCM_BASE + 0x101074)//0x7e101074
-#define CM_GP1DIV (BCM_BASE - 0x10107c)//0x7e10107c
-#define CM_GP2DIV (BCM_BASE - 0x101084)//0x7e101084
+// gpio
+#define GPIO_BASE (BCM_BASE + 0x200000)// 0x7E200000
+#define GPIO_BASE_PAGESIZE 4096
+
+#define GPIO_SET_REG 7  // turns GPIO pins high
+#define GPIO_CLR_REG 10 // turns GPIO pins low
+#define GPIO_LEV_REG 13 // when in input mode, bit n reads GPIO pin n
 
 #define PASSWD 0x5A000000
 #define MASH 512
@@ -34,16 +41,11 @@ Setting GPIO clocks using BCM2835 ARM Peripherals Guide.
 #define OSC_FREQ 19200000
 #define MCLK_FREQ 11289000
 
-// globals, registers
-bool clocks_initialized = 0;
-int * mclk_ctrl_reg = (int *)CM_GP0CTL; 
-int * mclk_div_reg = (int *)CM_GP0DIV;
-int * sclk_ctrl_reg = (int *)CM_GP1CTL;
-int * sclk_div_reg = (int *)CM_GP1DIV;
-int * lrclk_ctrl_reg = (int *)CM_GP2CTL;
-int * lrclk_div_reg = (int *)CM_GP2DIV;
+bool clock_is_busy(int clock_ctrl_reg);
 
-bool clock_is_busy(int * clock_ctrl_reg);
+void set_pin_high(unsigned char n);
+
+void set_pin_low(unsigned char n);
 
 int set_div(unsigned int freq);
 
