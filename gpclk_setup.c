@@ -63,6 +63,18 @@ void init_clocks() {
     }
 }
 
+void led_test(unsigned char n, unsigned int delay_seconds) {
+    // set pin to output mode (001)
+    unsigned int delay_us = delay_seconds * 1000000;
+    gpio[(int)n/10] |= 1 << (3*(n % 10));
+    for (int i = 0; i < 20; i++) {
+        set_pin_high(n);
+        usleep(delay_us);//delay(1);
+        set_pin_low(n);
+        usleep(delay_us);
+    }
+}
+
 int main() {
     int fdgpio = open("/dev/gpiomem", O_RDWR);
     if (fdgpio < 0) {
@@ -71,14 +83,9 @@ int main() {
     gpio = mmap((int *)GPIO_BASE, GPIO_BASE_PAGESIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
     clk_ctrl = mmap((int *)CLK_CTRL_BASE, CLK_CTRL_BASE_PAGESIZE, PROT_READ|PROT_WRITE, MAP_PRIVATE, fdgpio, 0);
     // testing LED @ pin 8
-    for (int i = 0; i < 20; i++) {
-        set_pin_high(8);
-        usleep(1000000);//delay(1);
-        set_pin_low(8);
-        usleep(1000000);
-    }
-    // mmun(gpio, GPIO_BASE_PAGESIZE);
-    // mmun(clk_ctrl, CLK_CTRL_BASE_PAGESIZE);
+    led_test(8, 1);
+    munmap(gpio, GPIO_BASE_PAGESIZE);
+    munmap(clk_ctrl, CLK_CTRL_BASE_PAGESIZE);
     return 0;
 }
 
