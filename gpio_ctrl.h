@@ -7,13 +7,30 @@ Setting GPIO clocks using BCM2835 ARM Peripherals Guide.
 
 #include <stdio.h>
 #include <stdbool.h>
-//#include <time.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/mman.h>
 
-//#define BCM_BASE 0x20000000 // <- for Pi 2
-#define BCM_BASE 0xF2000000 // <- for Pi 3
+#define PI_2_BASE 0x20000000
+#define PI_3_BASE 0xF2000000
+
+// BCM base
+#define BCM_BASE PI_3_BASE
+
+// I2S base
+#define I2S_BASE (BCM_BASE + 203000)
+
+// I2S
+#define CTRL_STATUS 0
+#define FIFO_REG 1
+#define MODE_REG 2
+#define RX_CONFIG 3
+#define TX_CONFIG 4
+#define DMA_REQ_LVL 5
+#define INTERRUPT_EN 6
+#define INTERRUPT_STATUS 7
+#define GRAY_MODE_REG 8
+#define I2S_PAGESIZE 24
 
 // clock function select register for GPCLK0, GPCLK1, GPCLK2
 #define CLK_CTRL_BASE (BCM_BASE + 0x101070)

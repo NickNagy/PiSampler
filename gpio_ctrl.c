@@ -2,7 +2,7 @@
 Setting GPIO clocks using BCM2835 ARM Peripherals Guide.
 */
 
-#include "gpclk_setup.h"
+#include "gpio_ctrl.h"
 
 bool clocks_initialized = 0;
 unsigned int * gpio;
@@ -82,7 +82,7 @@ int main() {
         printf("Failure to access /dev/gpiomem.\n"); 
     }
     gpio = mmap((int *)GPIO_BASE, GPIO_BASE_PAGESIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
-    clk_ctrl = mmap((int *)CLK_CTRL_BASE, CLK_CTRL_BASE_PAGESIZE, PROT_READ|PROT_WRITE, MAP_PRIVATE, fdgpio, 0);
+    clk_ctrl = mmap((int *)CLK_CTRL_BASE, CLK_CTRL_BASE_PAGESIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
     init_clocks();
     set_clock_freqs(MCLK_FREQ);
     // testing LED @ pin 8
