@@ -45,7 +45,7 @@ void set_clock_freqs(unsigned int mclk_freq) {
     // left-right clock
     if (!clock_is_busy(clk_ctrl[LRCLK_IDX])) {
         clk_ctrl[LRCLK_IDX + 1] = PASSWD | set_div(mclk_freq>>9);
-    	printf("lef-right clock @ address %p running at %dHz.\n", &clk_ctrl[LRCLK_IDX], mclk_freq>>9);
+    	//printf("lef-right clock @ address %p running at %dHz.\n", &clk_ctrl[LRCLK_IDX], mclk_freq>>9);
     } else {
         printf("Failure: left-right clock is busy.\n");
     }
@@ -69,6 +69,7 @@ void led_test(unsigned char n, unsigned int delay_seconds) {
     unsigned int delay_us = delay_seconds * 1000000;
     gpio[(int)n/10] |= 1 << (3*(n % 10));
     for (int i = 0; i < 20; i++) {
+	printf("i=%d\n",i);
         set_pin_high(n);
         usleep(delay_us);//delay(1);
         set_pin_low(n);
