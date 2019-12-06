@@ -109,7 +109,7 @@ int setDiv(unsigned int freq);
 
 void setClockFreqs(unsigned int mclk_freq);
 
-void initI2S();
+void initI2S(unsigned char frameSize, unsigned char channelWidth);
 
 void initClocks();
 

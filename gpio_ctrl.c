@@ -3,7 +3,6 @@ Setting GPIO clocks using BCM2835 ARM Peripherals Guide.
 */
 
 #include "gpio_ctrl.h"
-#include "i2s_ctrl.h"
 
 bool clocksInitialized = 0;
 unsigned int * gpio;
@@ -45,35 +44,35 @@ void initI2S(unsigned char frameSize, unsigned char channelWidth) {
         default: break;
     }
     // DMA setup
-    i2s[CTRL_STATUS] |= 0x19; // enable interface, and assert TXCLR & RXCLR
-    while((i2s[CTRL_STATUS] & 0x1000000)); // wait 2 clk cycles for SYNC
-    i2s[CTRL_STATUS] |= 512;
-    i2s[DREQ_LVL] = // set RX & TX request levels
-    
-    i2s[CTRL_STATUS] |= 6; // set TXON and RXON to begin operation
+    i2s[CTRL_STATUS_REG] |= 0x19; // enable interface, and assert TXCLR & RXCLR
+    while((i2s[CTRL_STATUS_REG] & 0x1000000)); // wait 2 clk cycles for SYNC
+    i2s[CTRL_STATUS_REG] |= 512;
+    i2s[DREQ_LVL_REG] = 0; // set RX & TX request levels TODO
+    i2s[CTRL_STATUS_REG] |= 6; // set TXON and RXON to begin operation
 }
 
 // uses source 1 (oscillator, 19.2MHz)
 void setClockFreqs(unsigned int mclk_freq) {
     // master clock
-    if (!clockIsBusy(clk_ctrl[MCLK_IDX])) {
-        clk_ctrl[MCLK_IDX + 1] = PASSWD | setDiv(mclk_freq);
+    if (!clockIsBusy(clk_ctrl[CLK0_IDX])) {
+        clk_ctrl[CLK0_IDX + 1] = CLK_PASSWD | setDiv(mclk_freq);
     } else {
         printf("Failure: master clock is busy.\n");
         return;
     }
     // slave clock
-    if (!clockIsBusy(clk_ctrl[SCLK_IDX])) {
-        clk_ctrl[SCLK_IDX + 1] = PASSWD | setDiv(mclk_freq>>6);
+    if (!clockIsBusy(clk_ctrl[CLK1_IDX])) {
+        clk_ctrl[CLK1_IDX + 1] = CLK_PASSWD | setDiv(mclk_freq>>6);
     } else {
         printf("Failure: slave clock is busy.\n");
         return;
     }
     // left-right clock
-    if (!clock_is_busy(clk_ctrl[LRCLK_IDX])) {
-        clk_ctrl[LRCLK_IDX + 1] = PASSWD | set_div(mclk_freq>>9);
+    if (!clockIsBusy(clk_ctrl[CLK2_IDX])) {
+        clk_ctrl[CLK2_IDX + 1] = CLK_PASSWD | setDiv(mclk_freq>>9);
     } else {
         printf("Failure: left-right clock is busy.\n");
+        return;
     }
 }
 
@@ -81,10 +80,10 @@ void initClocks() {
     if (!clocksInitialized) {
         gpio[0] |= CLOCK_FSEL_BITS;
         // set src to 1 (oscillator). Set enable AFTER src, password and mash
-        for (int i = MCLK_IDX; i <= LRCLK_IDX; i+=2) {
-            clk_ctrl[i] = PASSWD | MASH | 1;
+        for (int i = CLK0_IDX; i <= CLK2_IDX; i+=2) {
+            clk_ctrl[i] = CLK_PASSWD | MASH | 1;
             clk_ctrl[i] |= ENABLE;
-            clk_ctrl[i+1] = PASSWD;
+            clk_ctrl[i+1] = CLK_PASSWD;
         }
         clocksInitialized = 1;
     }
@@ -95,12 +94,8 @@ void LEDTest(unsigned char n, unsigned int delay_seconds) {
     unsigned int delay_us = delay_seconds * 1000000;
     gpio[(int)n/10] |= 1 << (3*(n % 10));
     for (int i = 0; i < 20; i++) {
-<<<<<<< HEAD
 	printf("i=%d\n",i);
-        set_pin_high(n);
-=======
         setPinHigh(n);
->>>>>>> ffde285b8bc226ad3a3eb4043d3c3bd671bd6be9
         usleep(delay_us);//delay(1);
         setPinLow(n);
         usleep(delay_us);
@@ -116,11 +111,10 @@ int main() {
     clk_ctrl = mmap((int *)CLK_CTRL_BASE, CLK_CTRL_BASE_PAGESIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
     i2s = (int *)((char *)gpio + 170); // GPIO_BASE + 0x3000 bytes //mmap((int *)I2S_BASE, I2S_PAGESIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
     initClocks();
-    setClockFreqs(MCLK_FREQ);
+    //setClockFreqs(MCLK_FREQ);
     // testing LED @ pin 8
     LEDTest(8, 1);
     munmap(gpio, GPIO_BASE_PAGESIZE);
-    munmap(i2s, I2S_PAGESIZE);
     munmap(clk_ctrl, CLK_CTRL_BASE_PAGESIZE);
     return 0;
 }
