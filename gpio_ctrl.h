@@ -30,7 +30,7 @@ Registers and relevant bit assignments for setting up GPCLK
 
 // function select register for GPCLK0, GPCLK1, GPCLK2
 #define CLK_CTRL_BASE (BCM_BASE + 0x101070)
-#define CLK_CTRL_BASE_PAGESIZE 20
+#define CLK_CTRL_BASE_PAGESIZE 24
 
 // input for *GPFSEL0. Sets all 3 GPCLKs to their clock function
 #define CLOCK_FSEL_BITS 0x124000

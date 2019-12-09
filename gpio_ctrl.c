@@ -9,6 +9,8 @@ unsigned int * gpio;
 unsigned int * i2s;
 unsigned int * clk_ctrl;
 
+unsigned int addressDiff = 0; // for debugging
+
 bool clockIsBusy(int clock_ctrl_reg) {
     return (((clock_ctrl_reg)>>7) & 1);
 }
@@ -79,11 +81,14 @@ void setClockFreqs(unsigned int mclk_freq) {
 void initClocks() {
     if (!clocksInitialized) {
         gpio[0] |= CLOCK_FSEL_BITS;
+        printf("initClocks: FSEL0 reg @ address %p = %x\n", gpio - addressDiff, gpio[0]);
         // set src to 1 (oscillator). Set enable AFTER src, password and mash
         for (int i = CLK0_IDX; i <= CLK2_IDX; i+=2) {
-            clk_ctrl[i] = CLK_PASSWD | MASH | 1;
-            clk_ctrl[i] |= ENABLE;
-            clk_ctrl[i+1] = CLK_PASSWD;
+            clk_ctrl[i] |= CLK_PASSWD | MASH | 1;
+            printf("clock ctrl reg @ address%p = %x\n", &clk_ctrl[i] - addressDiff, clk_ctrl[i]);
+            //clk_ctrl[i] |= ENABLE;
+            clk_ctrl[i+1] |= CLK_PASSWD;
+            printf("clock div reg @ address%p = %x\n", &clk_ctrl[i+1] - addressDiff, clk_ctrl[i + 1]);
         }
         clocksInitialized = 1;
     }
@@ -93,6 +98,7 @@ void LEDTest(unsigned char n, unsigned int delay_seconds) {
     // set pin to output mode (001)
     unsigned int delay_us = delay_seconds * 1000000;
     gpio[(int)n/10] |= 1 << (3*(n % 10));
+    printf("LEDTest: FSEL0 reg @ address %p = %x\n", gpio - addressDiff, gpio[0]);
     for (int i = 0; i < 20; i++) {
 	printf("i=%d\n",i);
         setPinHigh(n);
@@ -109,7 +115,7 @@ int main() {
     }
     gpio = mmap((int *)GPIO_BASE, GPIO_BASE_PAGESIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
     clk_ctrl = mmap((int *)CLK_CTRL_BASE, CLK_CTRL_BASE_PAGESIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
-    i2s = (int *)((char *)gpio + 170); // GPIO_BASE + 0x3000 bytes //mmap((int *)I2S_BASE, I2S_PAGESIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
+    //i2s = (unsigned int *)((char *)gpio + 170); // GPIO_BASE + 0x3000 bytes //mmap((int *)I2S_BASE, I2S_PAGESIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
     initClocks();
     //setClockFreqs(MCLK_FREQ);
     // testing LED @ pin 8
