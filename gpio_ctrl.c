@@ -56,22 +56,22 @@ void initI2S(unsigned char frameSize, unsigned char channelWidth) {
 // uses source 1 (oscillator, 19.2MHz)
 void setClockFreqs(unsigned int mclk_freq) {
     // master clock
-    if (!clockIsBusy(clk_ctrl[CLK0_IDX])) {
-        clk_ctrl[CLK0_IDX + 1] = CLK_PASSWD | setDiv(mclk_freq);
+    if (!clockIsBusy(clk_ctrl[CLK0_CTRL_REG])) {
+        clk_ctrl[CLK0_CTRL_REG + 1] = CLK_PASSWD | setDiv(mclk_freq);
     } else {
         printf("Failure: master clock is busy.\n");
         return;
     }
     // slave clock
-    if (!clockIsBusy(clk_ctrl[CLK1_IDX])) {
-        clk_ctrl[CLK1_IDX + 1] = CLK_PASSWD | setDiv(mclk_freq>>6);
+    if (!clockIsBusy(clk_ctrl[CLK1_CTRL_REG])) {
+        clk_ctrl[CLK1_CTRL_REG + 1] = CLK_PASSWD | setDiv(mclk_freq>>6);
     } else {
         printf("Failure: slave clock is busy.\n");
         return;
     }
     // left-right clock
-    if (!clockIsBusy(clk_ctrl[CLK2_IDX])) {
-        clk_ctrl[CLK2_IDX + 1] = CLK_PASSWD | setDiv(mclk_freq>>9);
+    if (!clockIsBusy(clk_ctrl[CLK2_CTRL_REG])) {
+        clk_ctrl[CLK2_CTRL_REG+ 1] = CLK_PASSWD | setDiv(mclk_freq>>9);
     } else {
         printf("Failure: left-right clock is busy.\n");
         return;
@@ -83,7 +83,7 @@ void initClocks() {
         gpio[0] |= CLOCK_FSEL_BITS;
         printf("initClocks: FSEL0 reg @ address %p = %x\n", gpio - addressDiff, gpio[0]);
         // set src to 1 (oscillator). Set enable AFTER src, password and mash
-        for (int i = CLK0_IDX; i < CLK1_IDX; i+=2) {//i <= CLK2_IDX; i+=2) {
+        for (int i = CLK0_CTRL_REG; i < CLK1_CTRL_REG; i+=2) {//i <= CLK2_IDX; i+=2) {
             clk_ctrl[i] |= CLK_PASSWD | MASH | SRC;
             printf("clock ctrl reg @ address%p = %x\n", &clk_ctrl[i], clk_ctrl[i]);
             //clk_ctrl[i] |= ENABLE;
@@ -110,14 +110,18 @@ void LEDTest(unsigned char pin, unsigned char numBlinks, unsigned int delay_seco
 
 int main() {
     unsigned int bcm_base = bcm_host_get_peripheral_address();
+    unsigned int pg_size = (unsigned)sysconf(_SC_PAGE_SIZE);
+    printf("page size = %d\n", pg_size);
     int fdgpio = open("/dev/gpiomem", O_RDWR);
     if (fdgpio < 0) {
         printf("Failure to access /dev/gpiomem.\n"); 
     }
-    gpio = mmap((int *)(bcm_base + GPIO_BASE_OFFSET), GPIO_BASE_PAGESIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
     clk_ctrl = mmap((int *)(bcm_base + CLK_CTRL_BASE_OFFSET), CLK_CTRL_BASE_PAGESIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
+    gpio = mmap((int *)(bcm_base + GPIO_BASE_OFFSET), GPIO_BASE_PAGESIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
     printf("address of clk_ctrl = %p\n", clk_ctrl);
-    initClocks();
+    printf("address of clk0 ctrl = %p\n", &clk_ctrl[CLK0_CTRL_REG]);
+    printf("address of clk0 div = %p\n", &clk_ctrl[CLK0_DIV_REG]);
+    //initClocks();
     LEDTest(8, 3, 1);
     munmap(gpio, GPIO_BASE_PAGESIZE);
     munmap(clk_ctrl, CLK_CTRL_BASE_PAGESIZE);
