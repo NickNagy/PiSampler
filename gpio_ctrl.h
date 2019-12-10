@@ -11,12 +11,16 @@ Setting GPIO clocks using BCM2835 ARM Peripherals Guide.
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+//#include <bcm_host.h>
 
+/*
 #define PI_2_BASE 0x20000000
 #define PI_3_BASE 0x3F000000
 
+
 // set to proper board
 #define BCM_BASE PI_3_BASE
+*/
 
 // Pi crystal oscillator
 #define OSC_FREQ 19200000
@@ -29,7 +33,7 @@ Registers and relevant bit assignments for setting up GPCLK
 */
 
 // function select register for GPCLK0, GPCLK1, GPCLK2
-#define CLK_CTRL_BASE (BCM_BASE + 0x101070)
+#define CLK_CTRL_BASE_OFFSET 0x101070 //CLK_CTRL_BASE (BCM_BASE + 0x101070)
 #define CLK_CTRL_BASE_PAGESIZE 24
 
 // input for *GPFSEL0. Sets all 3 GPCLKs to their clock function
@@ -57,7 +61,7 @@ Registers and relevant bit assignments for setting up GPCLK
 Registers and relevant bit assignments for setting up I2S
 */
 
-#define I2S_BASE BCM_BASE + 0x203000
+#define I2S_BASE_OFFSET 0x203000 //BCM_BASE + 0x203000
 #define I2S_PAGESIZE 24
 
 // register indices in I2S memory map array (FIFO_REG @ I2S_BASE + 0x4, MODE_REG @ I2S_BASE + 0x8, etc)
@@ -95,7 +99,7 @@ All other GPIO-relevant registers and bit assignments
 */
 
 // gpio
-#define GPIO_BASE (BCM_BASE + 0x200000)// 0x7E200000
+#define GPIO_BASE_OFFSET 0x200000//(BCM_BASE + 0x200000)// 0x7E200000
 #define GPIO_BASE_PAGESIZE 4096
 
 #define GPIO_SET_REG 7  // turns GPIO pins high
