@@ -11,16 +11,7 @@ Setting GPIO clocks using BCM2835 ARM Peripherals Guide.
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/mman.h>
-//#include <bcm_host.h>
-
-/*
-#define PI_2_BASE 0x20000000
-#define PI_3_BASE 0x3F000000
-
-
-// set to proper board
-#define BCM_BASE PI_3_BASE
-*/
+#include <bcm_host.h>
 
 // Pi crystal oscillator
 #define OSC_FREQ 19200000

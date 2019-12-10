@@ -3,7 +3,6 @@ Setting GPIO clocks using BCM2835 ARM Peripherals Guide.
 */
 
 #include "gpio_ctrl.h"
-#include "bcm.h"
 
 bool clocksInitialized = 0;
 unsigned int * gpio;
@@ -109,15 +108,8 @@ void LEDTest(unsigned char pin, unsigned char numBlinks, unsigned int delay_seco
     }
 }
 
-void clockTest(unsigned int freq) {
-    gpio[0] |= CLOCK_FSEL_BITS;
-    clk_ctrl[0] |= CLK_CTRL_INIT_BITS;
-    clk_ctrl[1] |= CLK_PASSWD | setDiv(freq);
-    clk_ctrl[0] |= ENABLE;
-}
-
 int main() {
-    unsigned int bcm_base = get_bcm_base();//bcm_host_get_peripheral_address();
+    unsigned int bcm_base = bcm_host_get_peripheral_address();
     int fdgpio = open("/dev/gpiomem", O_RDWR);
     if (fdgpio < 0) {
         printf("Failure to access /dev/gpiomem.\n"); 
@@ -125,13 +117,8 @@ int main() {
     gpio = mmap((int *)(bcm_base + GPIO_BASE_OFFSET), GPIO_BASE_PAGESIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
     clk_ctrl = mmap((int *)(bcm_base + CLK_CTRL_BASE_OFFSET), CLK_CTRL_BASE_PAGESIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
     printf("address of clk_ctrl = %p\n", clk_ctrl);
-    //i2s = (unsigned int *)((char *)gpio + 170); // GPIO_BASE + 0x3000 bytes //mmap((int *)I2S_BASE, I2S_PAGESIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
     initClocks();
-    //setClockFreqs(MCLK_FREQ);
-    // testing LED @ pin 8
-    //clockTest(MCLK_FREQ);
     LEDTest(8, 3, 1);
-    //clk_ctrl[0] ^= ENABLE; //disable
     munmap(gpio, GPIO_BASE_PAGESIZE);
     munmap(clk_ctrl, CLK_CTRL_BASE_PAGESIZE);
     return 0;
