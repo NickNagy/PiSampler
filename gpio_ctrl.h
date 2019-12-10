@@ -13,7 +13,7 @@ Setting GPIO clocks using BCM2835 ARM Peripherals Guide.
 #include <sys/mman.h>
 
 #define PI_2_BASE 0x20000000
-#define PI_3_BASE 0xF2000000
+#define PI_3_BASE 0x3F000000
 
 // set to proper board
 #define BCM_BASE PI_3_BASE
@@ -48,6 +48,9 @@ Registers and relevant bit assignments for setting up GPCLK
 #define CLK_PASSWD 0x5A000000
 #define MASH 512
 #define ENABLE 16
+#define SRC 1
+
+#define CLK_CTRL_INIT_BITS (CLK_PASSWD | MASH | SRC)
 
 /*
 *********************** I2S CONTROL ************************
@@ -112,5 +115,7 @@ void setClockFreqs(unsigned int mclk_freq);
 void initI2S(unsigned char frameSize, unsigned char channelWidth);
 
 void initClocks();
+
+void LEDTest(unsigned char pin, unsigned char numBlinks, unsigned int delay_seconds);
 
 #endif

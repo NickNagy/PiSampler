@@ -83,29 +83,36 @@ void initClocks() {
         gpio[0] |= CLOCK_FSEL_BITS;
         printf("initClocks: FSEL0 reg @ address %p = %x\n", gpio - addressDiff, gpio[0]);
         // set src to 1 (oscillator). Set enable AFTER src, password and mash
-        for (int i = CLK0_IDX; i <= CLK2_IDX; i+=2) {
-            clk_ctrl[i] |= CLK_PASSWD | MASH | 1;
-            printf("clock ctrl reg @ address%p = %x\n", &clk_ctrl[i] - addressDiff, clk_ctrl[i]);
+        for (int i = CLK0_IDX; i < CLK1_IDX; i+=2) {//i <= CLK2_IDX; i+=2) {
+            clk_ctrl[i] |= CLK_PASSWD | MASH | SRC;
+            printf("clock ctrl reg @ address%p = %x\n", &clk_ctrl[i], clk_ctrl[i]);
             //clk_ctrl[i] |= ENABLE;
             clk_ctrl[i+1] |= CLK_PASSWD;
-            printf("clock div reg @ address%p = %x\n", &clk_ctrl[i+1] - addressDiff, clk_ctrl[i + 1]);
+            printf("clock div reg @ address%p = %x\n", &clk_ctrl[i+1], clk_ctrl[i + 1]);
         }
         clocksInitialized = 1;
     }
 }
 
-void LEDTest(unsigned char n, unsigned int delay_seconds) {
+void LEDTest(unsigned char pin, unsigned char numBlinks, unsigned int delay_seconds) {
     // set pin to output mode (001)
     unsigned int delay_us = delay_seconds * 1000000;
-    gpio[(int)n/10] |= 1 << (3*(n % 10));
-    printf("LEDTest: FSEL0 reg @ address %p = %x\n", gpio - addressDiff, gpio[0]);
-    for (int i = 0; i < 20; i++) {
-	printf("i=%d\n",i);
-        setPinHigh(n);
+    gpio[(int)pin/10] |= 1 << (3*(pin % 10));
+    printf("LEDTest: FSEL0 reg @ address %p = %x\n", gpio, gpio[0]);
+    for (int i = 0; i < numBlinks; i++) {
+        printf("i=%d\n",i);
+        setPinHigh(pin);
         usleep(delay_us);//delay(1);
-        setPinLow(n);
+        setPinLow(pin);
         usleep(delay_us);
     }
+}
+
+void clockTest(unsigned int freq) {
+    gpio[0] |= CLOCK_FSEL_BITS;
+    clk_ctrl[0] |= CLK_CTRL_INIT_BITS;
+    clk_ctrl[1] |= CLK_PASSWD | setDiv(freq);
+    clk_ctrl[0] |= ENABLE;
 }
 
 int main() {
@@ -115,14 +122,15 @@ int main() {
     }
     gpio = mmap((int *)GPIO_BASE, GPIO_BASE_PAGESIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
     clk_ctrl = mmap((int *)CLK_CTRL_BASE, CLK_CTRL_BASE_PAGESIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
+    printf("address of clk_ctrl = %p\n", clk_ctrl);
     //i2s = (unsigned int *)((char *)gpio + 170); // GPIO_BASE + 0x3000 bytes //mmap((int *)I2S_BASE, I2S_PAGESIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
-    initClocks();
+    //initClocks();
     //setClockFreqs(MCLK_FREQ);
     // testing LED @ pin 8
-    LEDTest(8, 1);
+    clockTest(MCLK_FREQ);
+    LEDTest(8, 20, 1);
+    clk_ctrl[0] ^= ENABLE; //disable
     munmap(gpio, GPIO_BASE_PAGESIZE);
     munmap(clk_ctrl, CLK_CTRL_BASE_PAGESIZE);
     return 0;
 }
-
-
