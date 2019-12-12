@@ -9,16 +9,16 @@ unsigned int * gpio;
 unsigned int * i2s;
 unsigned int * clk_ctrl;
 
-unsigned int addressDiff = 0; // for debugging
-
 bool clockIsBusy(int clock_ctrl_reg) {
     return (((clock_ctrl_reg)>>7) & 1);
 }
 
 // assumes mash=1
 int setDiv(unsigned int freq) {
-    int divi = OSC_FREQ / freq;
-    return (divi<<12) | (4096 * (freq - divi));
+    int divi = (OSC_FREQ / freq) << 12;
+    if (MASH) 
+        return divi | (4096 * (freq - divi));
+    return divi;
 }
 
 void setPinHigh(unsigned char n) {
@@ -80,16 +80,18 @@ void setClockFreqs(unsigned int mclk_freq) {
 
 void initClocks() {
     if (!clocksInitialized) {
-        gpio[0] |= CLOCK_FSEL_BITS;
-        printf("initClocks: FSEL0 reg @ address %p = %x\n", gpio - addressDiff, gpio[0]);
-        // set src to 1 (oscillator). Set enable AFTER src, password and mash
-        for (int i = CLK0_CTRL_REG; i < CLK1_CTRL_REG; i+=2) {//i <= CLK2_IDX; i+=2) {
-            clk_ctrl[i] |= CLK_PASSWD | MASH | SRC;
-            printf("clock ctrl reg @ address%p = %x\n", &clk_ctrl[i], clk_ctrl[i]);
-            //clk_ctrl[i] |= ENABLE;
-            clk_ctrl[i+1] |= CLK_PASSWD;
-            printf("clock div reg @ address%p = %x\n", &clk_ctrl[i+1], clk_ctrl[i + 1]);
+        //gpio[0] |= CLK0_FSEL_BITS;
+        // disable clock first
+        while(clk_ctrl[CLK0_CTRL_REG] & BUSY) {
+            clk_ctrl[CLK0_CTRL_REG] = (CLK_PASSWD | KILL); //& ~ENABLE);
         }
+        printf("clock disabled.\n");
+        clk_ctrl[CLK0_DIV_REG] = (CLK_PASSWD | setDiv(MCLK_FREQ));
+        usleep(10);
+        clk_ctrl[CLK0_CTRL_REG] = CLK_CTRL_INIT_BITS;
+        usleep(10);
+        clk_ctrl[CLK0_CTRL_REG] |= (CLK_PASSWD | ENABLE);
+        printf("clock 0 is set to run @ %d Hz. ctrl reg @ %p = %x, div reg @ %p = %x\n", MCLK_FREQ, &clk_ctrl[CLK0_CTRL_REG], clk_ctrl[CLK0_CTRL_REG], &clk_ctrl[CLK0_DIV_REG], clk_ctrl[CLK0_DIV_REG]);
         clocksInitialized = 1;
     }
 }
@@ -118,11 +120,9 @@ int main() {
     }
     clk_ctrl = mmap((int *)(bcm_base + CLK_CTRL_BASE_OFFSET), CLK_CTRL_BASE_PAGESIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
     gpio = mmap((int *)(bcm_base + GPIO_BASE_OFFSET), GPIO_BASE_PAGESIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
-    printf("address of clk_ctrl = %p\n", clk_ctrl);
-    printf("address of clk0 ctrl = %p\n", &clk_ctrl[CLK0_CTRL_REG]);
-    printf("address of clk0 div = %p\n", &clk_ctrl[CLK0_DIV_REG]);
-    //initClocks();
-    LEDTest(8, 3, 1);
+    initClocks();
+    printf("clocks initialized.\n");
+    //LEDTest(8, 3, 1);
     munmap(gpio, GPIO_BASE_PAGESIZE);
     munmap(clk_ctrl, CLK_CTRL_BASE_PAGESIZE);
     return 0;
