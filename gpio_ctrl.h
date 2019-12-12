@@ -13,11 +13,6 @@ Setting GPIO clocks using BCM2835 ARM Peripherals Guide.
 #include <sys/mman.h>
 #include <bcm_host.h>
 
-// Pi crystal oscillator
-#define OSC_FREQ 19200000
-
-#define DATA_SIZE 16
-
 /* 
 ******************** CLOCK CONTROL ************************
 Registers and relevant bit assignments for setting up GPCLK
@@ -41,19 +36,37 @@ Registers and relevant bit assignments for setting up GPCLK
 #define CLK2_CTRL_REG 32
 #define CLK2_DIV_REG  33
 
+// source frequencies
+#define OSC_FREQ 19200000
+#define TESTDEBUG0_FREQ 0
+#define TESTDEBUG1_FREQ 0
+#define PLLA_FREQ 0
+#define PLLC_FREQ 1000000000
+#define PLLD_FREQ 500000000
+#define HDMI_FREQ 216000000
+
 // relevant clock frequencies
 #define MCLK_FREQ 11289000
 #define MCLK_LRCLK_RATIO 256 // =(2^val). may have to be empirically determined
 #define PCM_FS_FREQ (MCLK_FREQ / (2*MCLK_LRCLK_RATIO))
 #define SCLK_FREQ PCM_FS_FREQ*DATA_SIZE
 
-#define CLK_PASSWD 0x5A000000
+#define CLK_PASSWD (0x5A << 24) //000000
 #define MASH (1 << 9)
 #define BUSY (1 << 7)
 #define KILL (1 << 5)
 #define ENABLE (1 << 4)
-#define SRC 1
 
+// sources
+#define OSC 1
+#define TESTDEBUG0 2
+#define TESTDEBUG1 3
+#define PLLA 4
+#define PLLC 5
+#define PLLD 6
+#define HDMI 7
+
+#define SRC PLLD
 #define CLK_CTRL_INIT_BITS (CLK_PASSWD | MASH | SRC)
 
 /*
@@ -106,7 +119,9 @@ All other GPIO-relevant registers and bit assignments
 #define GPIO_CLR_REG 10 // turns GPIO pins low
 #define GPIO_LEV_REG 13 // when in input mode, bit n reads GPIO pin n
 
-bool clockIsBusy(int clock_ctrl_reg);
+static int getSourceFrequency();
+
+static bool clockIsBusy(int clock_ctrl_reg);
 
 void setPinHigh(unsigned char n);
 
@@ -114,12 +129,6 @@ void setPinLow(unsigned char n);
 
 int setDiv(unsigned int freq);
 
-void setClockFreqs(unsigned int mclk_freq);
-
-void initI2S(unsigned char frameSize, unsigned char channelWidth);
-
-void initClocks();
-
-void LEDTest(unsigned char pin, unsigned char numBlinks, unsigned int delay_seconds);
+static void initClocks();
 
 #endif
