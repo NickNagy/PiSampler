@@ -48,10 +48,11 @@ static void initClocks() {
         }
         clk_ctrl[CLK0_DIV_REG] = (CLK_PASSWD | setDiv(MCLK_FREQ));
         usleep(10);
-        clk_ctrl[CLK0_CTRL_REG] = (CLK_PASSWD | MASH | SRC); //CLK_CTRL_INIT_BITS;
+        clk_ctrl[CLK0_CTRL_REG] = CLK_CTRL_INIT_BITS;
         usleep(10);
         clk_ctrl[CLK0_CTRL_REG] |= (CLK_PASSWD | ENABLE);
         printf("clock 0 is set to run @ %d Hz. ctrl reg @ %p = %x, div reg @ %p = %x\n", MCLK_FREQ, &clk_ctrl[CLK0_CTRL_REG], clk_ctrl[CLK0_CTRL_REG], &clk_ctrl[CLK0_DIV_REG], clk_ctrl[CLK0_DIV_REG]);
+        usleep(10);
         clk_ctrl[CLK0_CTRL_REG] |= (CLK_PASSWD | KILL);
         clocksInitialized = 1;
     }
@@ -59,18 +60,16 @@ static void initClocks() {
 
 int main() {
     unsigned int bcm_base = bcm_host_get_peripheral_address();
-    int fdgpio = open("/dev/gpiomem", O_RDWR);
+    int fdgpio = open("/dev/mem", O_RDWR | O_SYNC);//("/dev/gpiomem", O_RDWR);
     if (fdgpio < 0) {
-        printf("Failure to access /dev/gpiomem.\n"); 
+        printf("Failure to access /dev/\n"); 
+        return 1;
     }
     clk_ctrl = (unsigned int *)mmap((unsigned int*)(bcm_base + CLK_CTRL_BASE_OFFSET), CLK_CTRL_BASE_PAGESIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
     gpio = (unsigned int *)mmap((unsigned int*)(bcm_base + GPIO_BASE_OFFSET), GPIO_BASE_PAGESIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
     sourceFreq = getSourceFrequency();
     printf("running system off of source #%d at frequency %dHz\n", SRC, sourceFreq);
-    int divTest = setDiv(MCLK_FREQ);
-    printf("div = %x\n", divTest);
     initClocks();
-    printf("clocks initialized.\n");
     munmap(gpio, GPIO_BASE_PAGESIZE);
     munmap(clk_ctrl, CLK_CTRL_BASE_PAGESIZE);
     return 0;
