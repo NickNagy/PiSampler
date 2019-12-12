@@ -7,7 +7,6 @@ Setting GPIO clocks using BCM2835 ARM Peripherals Guide.
 bool clocksInitialized = 0;
 int sourceFreq;
 unsigned int * gpio;
-unsigned int * i2s;
 unsigned int * clk_ctrl;
 
 static int getSourceFrequency() {
@@ -25,10 +24,11 @@ static bool clockIsBusy(int clock_ctrl_reg) {
 }
 
 int setDiv(unsigned int freq) {
-    int divi = (sourceFreq / freq) << 12;
+    float diviFloat = (float)sourceFreq / freq;
+    int divi = (int)diviFloat;
     if (MASH) 
-        return divi | (4096 * (freq - divi));
-    return divi;
+        return (divi << 12) | (int)(4096 * (diviFloat - divi));
+    return divi << 12;
 }
 
 void setPinHigh(unsigned char n) {
@@ -59,8 +59,6 @@ static void initClocks() {
 
 int main() {
     unsigned int bcm_base = bcm_host_get_peripheral_address();
-    unsigned int pg_size = (unsigned)sysconf(_SC_PAGE_SIZE);
-    printf("page size = %d\n", pg_size);
     int fdgpio = open("/dev/gpiomem", O_RDWR);
     if (fdgpio < 0) {
         printf("Failure to access /dev/gpiomem.\n"); 
@@ -68,6 +66,9 @@ int main() {
     clk_ctrl = (unsigned int *)mmap((unsigned int*)(bcm_base + CLK_CTRL_BASE_OFFSET), CLK_CTRL_BASE_PAGESIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
     gpio = (unsigned int *)mmap((unsigned int*)(bcm_base + GPIO_BASE_OFFSET), GPIO_BASE_PAGESIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
     sourceFreq = getSourceFrequency();
+    printf("running system off of source #%d at frequency %dHz\n", SRC, sourceFreq);
+    int divTest = setDiv(MCLK_FREQ);
+    printf("div = %x\n", divTest);
     initClocks();
     printf("clocks initialized.\n");
     munmap(gpio, GPIO_BASE_PAGESIZE);

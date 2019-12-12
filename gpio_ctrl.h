@@ -66,7 +66,7 @@ Registers and relevant bit assignments for setting up GPCLK
 #define PLLD 6
 #define HDMI 7
 
-#define SRC PLLD
+#define SRC OSC
 #define CLK_CTRL_INIT_BITS (CLK_PASSWD | MASH | SRC)
 
 /*
