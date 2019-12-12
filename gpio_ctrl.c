@@ -80,7 +80,7 @@ void setClockFreqs(unsigned int mclk_freq) {
 
 void initClocks() {
     if (!clocksInitialized) {
-        //gpio[0] |= CLK0_FSEL_BITS;
+        gpio[0] |= CLK0_FSEL_BITS;
         // disable clock first
         while(clk_ctrl[CLK0_CTRL_REG] & BUSY) {
             clk_ctrl[CLK0_CTRL_REG] = (CLK_PASSWD | KILL); //& ~ENABLE);
@@ -118,8 +118,8 @@ int main() {
     if (fdgpio < 0) {
         printf("Failure to access /dev/gpiomem.\n"); 
     }
-    clk_ctrl = mmap((int *)(bcm_base + CLK_CTRL_BASE_OFFSET), CLK_CTRL_BASE_PAGESIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
-    gpio = mmap((int *)(bcm_base + GPIO_BASE_OFFSET), GPIO_BASE_PAGESIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
+    clk_ctrl = (unsigned int *)mmap((unsigned int*)(bcm_base + CLK_CTRL_BASE_OFFSET), CLK_CTRL_BASE_PAGESIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
+    gpio = (unsigned int *)mmap((unsigned int*)(bcm_base + GPIO_BASE_OFFSET), GPIO_BASE_PAGESIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
     initClocks();
     printf("clocks initialized.\n");
     //LEDTest(8, 3, 1);
