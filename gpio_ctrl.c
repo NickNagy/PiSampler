@@ -4,125 +4,156 @@ Setting GPIO clocks using BCM2835 ARM Peripherals Guide.
 
 #include "gpio_ctrl.h"
 
-bool clocksInitialized = 0;
+static char clocksInitialized;
+static char clocksRunning;
+static char clockSource;
+static unsigned clockSourceFreq;
 unsigned int * gpio;
-unsigned int * i2s;
 unsigned int * clk_ctrl;
 
-unsigned int addressDiff = 0; // for debugging
+static int getSourceFrequency(char src) {
+    switch (src) {
+        case OSC: return OSC_FREQ;
+        case PLLC: return PLLC_FREQ;
+        case PLLD: return PLLD_FREQ;
+        default: return 0;
+    }
+}
 
-bool clockIsBusy(int clock_ctrl_reg) {
+static bool clockIsBusy(int clock_ctrl_reg) {
     return (((clock_ctrl_reg)>>7) & 1);
 }
 
-// assumes mash=1
-int setDiv(unsigned int freq) {
-    int divi = OSC_FREQ / freq;
-    return (divi<<12) | (4096 * (freq - divi));
+int setDiv(unsigned freq, bool mash) {
+    float diviFloat = (float)clockSourceFreq / freq;
+    int divi = (int)diviFloat;
+    if (mash) 
+        return (divi << 12) | (int)(4096 * (diviFloat - divi));
+    return divi << 12;
 }
 
-void setPinHigh(unsigned char n) {
+void setPinHigh(char n) {
     gpio[GPIO_SET_REG] |= (1 << n);
 }
 
-void setPinLow(unsigned char n) {
+void setPinLow(char n) {
     gpio[GPIO_CLR_REG] |= (1 << n);
 }
 
-/*
-DMA Mode
-1) set EN bit. Assert RXCLR & TXCLR, wait 2 clk cycles for FIFOs to reset
-2) set DMAEN to enable DMA DREQ generation, set RXREQ/TXREQ to dermine DREQ FIFO thresholds
-3) set DREQ channels, one for TX and one for RX. Start the DMA
-4) set TXON and RXON to begin operation
-*/
-void initI2S(unsigned char frameSize, unsigned char channelWidth) {
-    // set GPIO 18-21 to I2S mode
-    gpio[0] |= PCM_CLK_FSEL_BITS;
-    gpio[1] |= PCM_DATA_FSEL_BITS;
-    // setup PCM_FS & channel width bits
-    switch(channelWidth) {
-        case 16: break;
-        default: break;
-    }
-    // DMA setup
-    i2s[CTRL_STATUS_REG] |= 0x19; // enable interface, and assert TXCLR & RXCLR
-    while((i2s[CTRL_STATUS_REG] & 0x1000000)); // wait 2 clk cycles for SYNC
-    i2s[CTRL_STATUS_REG] |= 512;
-    i2s[DREQ_LVL_REG] = 0; // set RX & TX request levels TODO
-    i2s[CTRL_STATUS_REG] |= 6; // set TXON and RXON to begin operation
-}
-
-// uses source 1 (oscillator, 19.2MHz)
-void setClockFreqs(unsigned int mclk_freq) {
-    // master clock
-    if (!clockIsBusy(clk_ctrl[CLK0_IDX])) {
-        clk_ctrl[CLK0_IDX + 1] = CLK_PASSWD | setDiv(mclk_freq);
-    } else {
-        printf("Failure: master clock is busy.\n");
-        return;
-    }
-    // slave clock
-    if (!clockIsBusy(clk_ctrl[CLK1_IDX])) {
-        clk_ctrl[CLK1_IDX + 1] = CLK_PASSWD | setDiv(mclk_freq>>6);
-    } else {
-        printf("Failure: slave clock is busy.\n");
-        return;
-    }
-    // left-right clock
-    if (!clockIsBusy(clk_ctrl[CLK2_IDX])) {
-        clk_ctrl[CLK2_IDX + 1] = CLK_PASSWD | setDiv(mclk_freq>>9);
-    } else {
-        printf("Failure: left-right clock is busy.\n");
-        return;
-    }
-}
-
-void initClocks() {
-    if (!clocksInitialized) {
-        gpio[0] |= CLOCK_FSEL_BITS;
-        printf("initClocks: FSEL0 reg @ address %p = %x\n", gpio - addressDiff, gpio[0]);
-        // set src to 1 (oscillator). Set enable AFTER src, password and mash
-        for (int i = CLK0_IDX; i <= CLK2_IDX; i+=2) {
-            clk_ctrl[i] |= CLK_PASSWD | MASH | SRC;
-            printf("clock ctrl reg @ address%p = %x\n", &clk_ctrl[i] - addressDiff, clk_ctrl[i]);
-            //clk_ctrl[i] |= ENABLE;
-            clk_ctrl[i+1] |= CLK_PASSWD;
-            printf("clock div reg @ address%p = %x\n", &clk_ctrl[i+1] - addressDiff, clk_ctrl[i + 1]);
+static bool isValidClockSelection(char clockNum) {
+    switch(clockNum) {
+        case 0: {
+            printf("Clock 0 is available for user\n");
+            return 1;
         }
-        clocksInitialized = 1;
+        case 1: { // TODO: add model dependencies
+            printf("Clock 1 is not available for user.\n");
+            return 0;
+        }
+        case 2: { // TODO: add model dependencies
+            printf("Clock 2 is available for user\n"); 
+            return 1;
+        }
+        default: {
+            printf("Invalid clock.\n");
+            return 0;
+        }
     }
 }
 
-void LEDTest(unsigned char n, unsigned int delay_seconds) {
-    // set pin to output mode (001)
-    unsigned int delay_us = delay_seconds * 1000000;
-    gpio[(int)n/10] |= 1 << (3*(n % 10));
-    printf("LEDTest: FSEL0 reg @ address %p = %x\n", gpio - addressDiff, gpio[0]);
-    for (int i = 0; i < 20; i++) {
-	printf("i=%d\n",i);
-        setPinHigh(n);
-        usleep(delay_us);//delay(1);
-        setPinLow(n);
+void disableClock(char clockNum) {
+    while(clk_ctrl[CLK_CTRL_REG(clockNum)] & BUSY) {
+        clk_ctrl[CLK_CTRL_REG(clockNum)] = (CLK_PASSWD & ~ENABLE);
+    }
+    clocksRunning ^= (1 << clockNum);
+}
+
+static int initClock(char clockNum, unsigned frequency, bool mash) {
+    if (!isValidClockSelection(clockNum)) return 1;
+    gpio[clockNum] |= CLK_FSEL_BITS(clockNum);
+    if((clocksRunning >> clockNum) & 1) 
+        disableClock(clockNum);
+    clk_ctrl[CLK_DIV_REG(clockNum)] = (CLK_PASSWD | setDiv(frequency, mash));
+    usleep(10);
+    clk_ctrl[CLK_CTRL_REG(clockNum)] = CLK_PASSWD | MASH(mash) | clockSource;
+    usleep(10);
+    printf("clock %d is set to run @ %d Hz. ctrl reg @ %p = %x, div reg @ %p = %x\n", clockNum, frequency, &clk_ctrl[CLK_CTRL_REG(clockNum)], clk_ctrl[CLK_CTRL_REG(clockNum)], &clk_ctrl[CLK_DIV_REG(clockNum)], clk_ctrl[CLK_DIV_REG(clockNum)]);
+    clocksInitialized |= 1 << clockNum;
+    return 0;
+}
+
+static int startClock(char clockNum) {
+    if ((clocksRunning >> clockNum) & 1) {
+        printf("Clock %d is already running. You will have to disable it first.\n", clockNum);
+        return 1;
+    }
+    if (!((clocksInitialized >> clockNum) & 1)) {
+        printf("ERROR: clock %d hasn't been initialized.\n", clockNum);
+        return 1;
+    }
+    if (VERBOSE) {
+        unsigned divi = (clk_ctrl[CLK_DIV_REG(clockNum)] >> 12) & 0xFFF;
+        unsigned divf = clk_ctrl[CLK_DIV_REG(clockNum)] & 0xFFF; 
+        unsigned clockFreq = (unsigned) clockSourceFreq / (divi + (divf/4096.0));
+        printf("Starting clock %d @ %d Hz...\n", clockNum, clockFreq);
+    }
+    clocksRunning |= (1 << clockNum);
+    clk_ctrl[CLK_CTRL_REG(clockNum)] |= (CLK_PASSWD | ENABLE);
+    return 0;
+}
+
+void LEDTest(char pin, unsigned char numBlinks, unsigned delay_seconds) {
+    unsigned delay_us = 1000000 * delay_seconds;
+    printf("FSEL clear = %x\n", FSEL_CLEAR_REG(pin%10));
+    gpio[pin/10] &= FSEL_CLEAR_REG(pin%10) | (1 << FSEL_SHIFT(pin%10));
+    if (VERBOSE) printf("GPIO FSEL%d = %x\n", pin/10, gpio[pin/10]);
+    for (char i = 0; i < numBlinks; i++) {
+        printf("%d\n",i);
+        setPinHigh(pin);
+        usleep(delay_us);
+        setPinLow(pin);
         usleep(delay_us);
     }
 }
 
-int main() {
-    int fdgpio = open("/dev/gpiomem", O_RDWR);
-    if (fdgpio < 0) {
-        printf("Failure to access /dev/gpiomem.\n"); 
+static bool initMemMap() {
+    unsigned bcm_base = bcm_host_get_peripheral_address();
+    int fd = open("/dev/mem", O_RDWR | O_SYNC);
+    if (fd < 0) {
+        printf("Failure to access /dev/mem\n"); 
+        return 0;
     }
-    gpio = mmap((int *)GPIO_BASE, GPIO_BASE_PAGESIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
-    clk_ctrl = mmap((int *)CLK_CTRL_BASE, CLK_CTRL_BASE_PAGESIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
-    //i2s = (unsigned int *)((char *)gpio + 170); // GPIO_BASE + 0x3000 bytes //mmap((int *)I2S_BASE, I2S_PAGESIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fdgpio, 0);
-    initClocks();
-    //setClockFreqs(MCLK_FREQ);
-    // testing LED @ pin 8
-    LEDTest(8, 1);
-    munmap(gpio, GPIO_BASE_PAGESIZE);
-    munmap(clk_ctrl, CLK_CTRL_BASE_PAGESIZE);
-    return 0;
+    clk_ctrl = (unsigned *)mmap((unsigned *)(bcm_base + CLK_CTRL_BASE_OFFSET), CLK_CTRL_BASE_MAPSIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+    printf("clock control and div registers loaded from /dev/mem.\n");
+    gpio = (unsigned *)mmap((unsigned *)(bcm_base + GPIO_BASE_OFFSET), GPIO_BASE_MAPSIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+    printf("GPIO loaded from /dev/mem.\n");
+    return 1;
 }
 
+static void clearMemMap() {
+    munmap(gpio, GPIO_BASE_MAPSIZE);
+    munmap(clk_ctrl, CLK_CTRL_BASE_MAPSIZE);
+}
 
+void disableAllClocks() {
+    char c = clocksInitialized;
+    for (int i = 0; i < 3; i++) {
+        if ((clocksRunning >> i) & 1)
+            disableClock(i);
+    }
+    clocksInitialized = 0;
+}
+
+int main(int argc, char** argv) {
+    if(!initMemMap()) return 1;
+    clockSource = OSC;
+    clockSourceFreq = getSourceFrequency(clockSource);
+    printf("running system off of source #%d at frequency %d Hz\n", clockSource, clockSourceFreq);
+    clocksRunning = 0xFF;
+    initClock(0, 11289000, 1);
+    startClock(0);
+    LEDTest(8, 0, 1);
+    disableAllClocks();
+    clearMemMap();
+    return 0;
+}
