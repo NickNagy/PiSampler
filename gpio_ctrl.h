@@ -48,6 +48,7 @@ Registers and relevant bit assignments for setting up GPCLK
 #define CLK_PASSWD 0x5A000000
 #define MASH 512
 #define ENABLE 16
+#define SRC 1
 
 /*
 *********************** I2S CONTROL ************************

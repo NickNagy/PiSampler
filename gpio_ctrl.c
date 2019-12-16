@@ -84,7 +84,7 @@ void initClocks() {
         printf("initClocks: FSEL0 reg @ address %p = %x\n", gpio - addressDiff, gpio[0]);
         // set src to 1 (oscillator). Set enable AFTER src, password and mash
         for (int i = CLK0_IDX; i <= CLK2_IDX; i+=2) {
-            clk_ctrl[i] |= CLK_PASSWD | MASH | 1;
+            clk_ctrl[i] |= CLK_PASSWD | MASH | SRC;
             printf("clock ctrl reg @ address%p = %x\n", &clk_ctrl[i] - addressDiff, clk_ctrl[i]);
             //clk_ctrl[i] |= ENABLE;
             clk_ctrl[i+1] |= CLK_PASSWD;
