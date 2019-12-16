@@ -14,7 +14,7 @@ Setting GPIO clocks using BCM2835 ARM Peripherals Guide.
 #include <bcm_host.h>
 
 #define FSEL_SHIFT(x) 3*x
-#define FSEL_CLEAR_REG(x) (7 << FSEL_SHIFT(x)) ^ 0xFFFFFFFF
+#define FSEL_CLEAR_PIN_BITS(x) ((7 << FSEL_SHIFT(x)) ^ 0xFFFFFFFF)
 
 #define VERBOSE 1
 
@@ -26,7 +26,7 @@ Registers and relevant bit assignments for setting up GPCLK
 // function select register for GPCLK0, GPCLK1, GPCLK2
 // clock control registers start at +0x101070, but this is not a multiple of our system page size, so we have to start from +0x101000
 #define CLK_CTRL_BASE_OFFSET 0x101000 
-#define CLK_CTRL_BASE_MAPSIZE 136 // need to hold up to 0x101088
+#define CLK_CTRL_BASE_MAPSIZE 168 //136 // need to hold up to 0x101088
 
 // function select
 #define CLK_ALT_SHIFT(x) 12 + FSEL_SHIFT(x)
@@ -82,7 +82,7 @@ void disableClock(char clockNum);
 
 static int startClock(char clockNum);
 
-static int initClockRegs(char clockNum, unsigned frequency, bool mash);
+static int initClock(char clockNum, unsigned frequency, bool mash);
 
 void disableAllClocks();
 
