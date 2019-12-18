@@ -159,7 +159,7 @@ int main(int argc, char** argv) {
     clockSourceFreq = getSourceFrequency(clockSource);
     printf("running system off of source #%d at frequency %d Hz\n", clockSource, clockSourceFreq);
     clocksRunning = 0xFF;
-    initClock(0, 11289000, 1);
+    initClock(0, 100000, 1);
     startClock(0);
     LEDTest(8, 10, 1);
     disableAllClocks();
