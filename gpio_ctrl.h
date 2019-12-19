@@ -14,8 +14,8 @@ Setting GPIO clocks using BCM2835 ARM Peripherals Guide.
 #include <bcm_host.h>
 
 #define FSEL_SHIFT(x) 3*x
-#define FSEL_CLEAR_PIN_BITS(x) ((7 << FSEL_SHIFT(x)) ^ 0xFFFFFFFF)
-
+#define FSEL_CLEAR_PIN_BITS(x) ~(7 << FSEL_SHIFT(x))
+#define PRINT_REG(prefix, reg) printf("%s: reg @ %p = %x\n", prefix, &reg, reg);
 #define VERBOSE 1
 
 /* 
@@ -39,7 +39,7 @@ Registers and relevant bit assignments for setting up GPCLK
 #define CLK_PASSWD (0x5A << 24)
 #define MASH(x) (x << 9)
 #define BUSY (1 << 7)
-#define KILL (1 << 5)
+#define KILL (1 << 5) 
 #define ENABLE (1 << 4)
 
 // source frequencies

@@ -20,6 +20,17 @@ static int getSourceFrequency(char src) {
     }
 }
 
+static bool setPinMode(char pin, char mode) {
+    if (mode > 7) {
+        printf("ERROR: INVALID MODE.\n");
+        return 0;
+    }
+    char fsel_reg = pin/10;
+    char pinR = pin % 10;
+    gpio[fsel_reg] = (gpio[fsel_reg] & FSEL_CLEAR_PIN_BITS(pinR)) | (mode << FSEL_SHIFT(pinR));
+    return 1;
+}
+
 static bool clockIsBusy(int clock_ctrl_reg) {
     return (((clock_ctrl_reg)>>7) & 1);
 }
@@ -63,22 +74,26 @@ static bool isValidClockSelection(char clockNum) {
 }
 
 void disableClock(char clockNum) {
-    while(clk_ctrl[CLK_CTRL_REG(clockNum)] & BUSY) {
-        clk_ctrl[CLK_CTRL_REG(clockNum)] = (CLK_PASSWD & ~ENABLE);
+    if (clk_ctrl[CLK_CTRL_REG(clockNum)] & BUSY) {
+        do {
+            clk_ctrl[CLK_CTRL_REG(clockNum)] = (CLK_PASSWD | KILL);
+        }
+        while(clk_ctrl[CLK_CTRL_REG(clockNum)] & BUSY);
     }
-    clocksRunning ^= (1 << clockNum);
+    clocksRunning &= ~(1 << clockNum);
 }
 
 static int initClock(char clockNum, unsigned frequency, bool mash) {
     if (!isValidClockSelection(clockNum)) return 1;
-    gpio[clockNum] |= CLK_FSEL_BITS(clockNum);
     if((clocksRunning >> clockNum) & 1) 
         disableClock(clockNum);
     clk_ctrl[CLK_DIV_REG(clockNum)] = (CLK_PASSWD | setDiv(frequency, mash));
     usleep(10);
-    clk_ctrl[CLK_CTRL_REG(clockNum)] = CLK_PASSWD | MASH(mash) | clockSource;
+    clk_ctrl[CLK_CTRL_REG(clockNum)] = (CLK_PASSWD | MASH(mash) | clockSource);
     usleep(10);
-    printf("clock %d is set to run @ %d Hz. ctrl reg @ %p = %x, div reg @ %p = %x\n", clockNum, frequency, &clk_ctrl[CLK_CTRL_REG(clockNum)], clk_ctrl[CLK_CTRL_REG(clockNum)], &clk_ctrl[CLK_DIV_REG(clockNum)], clk_ctrl[CLK_DIV_REG(clockNum)]);
+    printf("clock %d is set to run @ %d Hz.\n", clockNum, frequency);
+    PRINT_REG("CTL", clk_ctrl[CLK_CTRL_REG(clockNum)]);
+    PRINT_REG("DIV", clk_ctrl[CLK_DIV_REG(clockNum)]);
     clocksInitialized |= 1 << clockNum;
     return 0;
 }
@@ -100,6 +115,7 @@ static int startClock(char clockNum) {
     }
     clocksRunning |= (1 << clockNum);
     clk_ctrl[CLK_CTRL_REG(clockNum)] |= (CLK_PASSWD | ENABLE);
+    setPinMode(clockNum + 4, 4);
     return 0;
 }
 
@@ -107,8 +123,8 @@ void LEDTest(char pin, unsigned char numBlinks, unsigned delay_seconds) {
     unsigned delay_us = 1000000 * delay_seconds;
     int fsel_reg = pin/10;
     int pinR = pin % 10;
-    gpio[fsel_reg] = (gpio[fsel_reg] & FSEL_CLEAR_PIN_BITS(pinR)) | (1 << FSEL_SHIFT(pinR));
-    if (VERBOSE) printf("GPIO FSEL%d @ address %p = %x\n", fsel_reg, &gpio[fsel_reg], gpio[fsel_reg]);
+    setPinMode(pin, 1);
+    if (VERBOSE) PRINT_REG("FSEL", gpio[fsel_reg]);//printf("GPIO FSEL%d @ address %p = %x\n", fsel_reg, &gpio[fsel_reg], gpio[fsel_reg]);
     for (char i = 0; i < numBlinks; i++) {
         printf("%d\n",i);
         setPinHigh(pin);
@@ -125,14 +141,14 @@ static bool initMemMap() {
         printf("Failure to access /dev/gpiomem\n");
         return 0;
     }
-    gpio = (unsigned *)mmap((unsigned *)(bcm_base + GPIO_BASE_OFFSET), GPIO_BASE_MAPSIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+    gpio = (unsigned *)mmap(0, GPIO_BASE_MAPSIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fd, (bcm_base + GPIO_BASE_OFFSET));
     printf("GPIO loaded from /dev/gpiomem.\n");    
     fd = open("/dev/mem", O_RDWR | O_SYNC);
     if (fd < 0) {
         printf("Failure to access /dev/mem\n"); 
         return 0;
     }
-    clk_ctrl = (unsigned *)mmap((unsigned *)(bcm_base + CLK_CTRL_BASE_OFFSET), CLK_CTRL_BASE_MAPSIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+    clk_ctrl = (unsigned *)mmap(0, CLK_CTRL_BASE_MAPSIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fd, (bcm_base + CLK_CTRL_BASE_OFFSET));
     printf("clock control and div registers loaded from /dev/mem.\n");
     //gpio = (unsigned *)mmap((unsigned *)(bcm_base + GPIO_BASE_OFFSET), GPIO_BASE_MAPSIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
     //printf("GPIO loaded from /dev/mem.\n");
@@ -155,11 +171,11 @@ void disableAllClocks() {
 
 int main(int argc, char** argv) {
     if(!initMemMap()) return 1;
-    clockSource = OSC;
+    clockSource = PLLD;//OSC;
     clockSourceFreq = getSourceFrequency(clockSource);
     printf("running system off of source #%d at frequency %d Hz\n", clockSource, clockSourceFreq);
     clocksRunning = 0xFF;
-    initClock(0, 100000, 1);
+    initClock(0, 11289000, 1);
     startClock(0);
     LEDTest(8, 10, 1);
     disableAllClocks();
