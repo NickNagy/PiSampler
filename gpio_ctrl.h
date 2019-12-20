@@ -26,7 +26,8 @@ Registers and relevant bit assignments for setting up GPCLK
 // function select register for GPCLK0, GPCLK1, GPCLK2
 // clock control registers start at +0x101070, but this is not a multiple of our system page size, so we have to start from +0x101000
 #define CLK_CTRL_BASE_OFFSET 0x101000 
-#define CLK_CTRL_BASE_MAPSIZE 168 //136 // need to hold up to 0x101088
+#define CLK_CTRL_BASE (bcm_base + CLK_CTRL_BASE_OFFSET)
+#define CLK_CTRL_BASE_MAPSIZE 0xA8 // need to hold up to 0x101088
 
 // function select
 #define CLK_ALT_SHIFT(x) 12 + FSEL_SHIFT(x)
@@ -59,8 +60,9 @@ Registers and relevant bit assignments for setting up GPCLK
 All other GPIO-relevant registers and bit assignments
 */
 
-#define GPIO_BASE_OFFSET 0x200000//(BCM_BASE + 0x200000)// 0x7E200000
-#define GPIO_BASE_MAPSIZE 244
+#define GPIO_BASE_OFFSET 0x200000
+#define GPIO_BASE (bcm_base + GPIO_BASE_OFFSET)
+#define GPIO_BASE_MAPSIZE 0xF4
 
 #define GPIO_SET_REG 7  // turns GPIO pins high
 #define GPIO_CLR_REG 10 // turns GPIO pins low
