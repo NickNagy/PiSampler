@@ -76,7 +76,7 @@ static bool isValidClockSelection(char clockNum) {
 void disableClock(char clockNum) {
     if (clk_ctrl[CLK_CTRL_REG(clockNum)] & BUSY) {
         do {
-            clk_ctrl[CLK_CTRL_REG(clockNum)] = (CLK_PASSWD | KILL);
+            clk_ctrl[CLK_CTRL_REG(clockNum)] = (CLK_PASSWD & ~ENABLE);
         }
         while(clk_ctrl[CLK_CTRL_REG(clockNum)] & BUSY);
     }
@@ -95,6 +95,9 @@ static int initClock(char clockNum, unsigned frequency, bool mash) {
     PRINT_REG("CTL", clk_ctrl[CLK_CTRL_REG(clockNum)]);
     PRINT_REG("DIV", clk_ctrl[CLK_DIV_REG(clockNum)]);
     clocksInitialized |= 1 << clockNum;
+    if (VERBOSE) {
+        printf("Clocks running = %d, clocks initialized = %d\n", clocksRunning, clocksInitialized);
+    }
     return 0;
 }
 
@@ -136,22 +139,25 @@ void LEDTest(char pin, unsigned char numBlinks, unsigned delay_seconds) {
 
 static bool initMemMap() {
     unsigned bcm_base = bcm_host_get_peripheral_address();
-    int fd = open("/dev/gpiomem", O_RDWR | O_SYNC);
+    if (VERBOSE)
+        printf("As a test, gpio addr should start @ %x\n", bcm_base + GPIO_BASE_OFFSET);
+    int fd;
+    /*fd = open("/dev/gpiomem", O_RDWR | O_SYNC);
     if (fd < 0) {
         printf("Failure to access /dev/gpiomem\n");
         return 0;
     }
-    gpio = (unsigned *)mmap(0, GPIO_BASE_MAPSIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fd, (bcm_base + GPIO_BASE_OFFSET));
-    printf("GPIO loaded from /dev/gpiomem.\n");    
+    gpio = (unsigned *)mmap(0, GPIO_BASE_MAPSIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fd, (unsigned)(bcm_base + GPIO_BASE_OFFSET));
+    printf("GPIO loaded from /dev/gpiomem.\n");*/
     fd = open("/dev/mem", O_RDWR | O_SYNC);
     if (fd < 0) {
         printf("Failure to access /dev/mem\n"); 
         return 0;
     }
-    clk_ctrl = (unsigned *)mmap(0, CLK_CTRL_BASE_MAPSIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fd, (bcm_base + CLK_CTRL_BASE_OFFSET));
+    gpio = (unsigned *)mmap(0, GPIO_BASE_MAPSIZE, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_SHARED|MAP_LOCKED, fd, (off_t)(bcm_base + GPIO_BASE_OFFSET));
+    printf("GPIO loaded from /dev/mem.\n");
+    clk_ctrl = (unsigned *)mmap(0, CLK_CTRL_BASE_MAPSIZE, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_SHARED|MAP_LOCKED, fd, (off_t)(bcm_base + CLK_CTRL_BASE_OFFSET));
     printf("clock control and div registers loaded from /dev/mem.\n");
-    //gpio = (unsigned *)mmap((unsigned *)(bcm_base + GPIO_BASE_OFFSET), GPIO_BASE_MAPSIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
-    //printf("GPIO loaded from /dev/mem.\n");
     return 1;
 }
 
@@ -161,11 +167,14 @@ static void clearMemMap() {
 }
 
 void disableAllClocks() {
-    char c = clocksInitialized;
+    if (VERBOSE)
+        printf("Disabling all clocks...\n");
     for (int i = 0; i < 3; i++) {
         if ((clocksRunning >> i) & 1)
             disableClock(i);
     }
+    if (VERBOSE)
+        printf("Clocks running = %d\n", clocksRunning);
     clocksInitialized = 0;
 }
 
@@ -174,11 +183,13 @@ int main(int argc, char** argv) {
     clockSource = PLLD;//OSC;
     clockSourceFreq = getSourceFrequency(clockSource);
     printf("running system off of source #%d at frequency %d Hz\n", clockSource, clockSourceFreq);
-    clocksRunning = 0xFF;
+    clocksRunning = 7; // 0b111, init all 3 gpclks to assumed running
     initClock(0, 11289000, 1);
     startClock(0);
     LEDTest(8, 10, 1);
     disableAllClocks();
+    PRINT_REG("Ctrl", clk_ctrl[CLK_CTRL_REG(0)]);
+    PRINT_REG("Div", clk_ctrl[CLK_DIV_REG(0)]);
     clearMemMap();
     return 0;
 }
