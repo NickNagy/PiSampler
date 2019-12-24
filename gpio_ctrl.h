@@ -9,6 +9,7 @@ Setting GPIO clocks using BCM2835 ARM Peripherals Guide.
 #include <stdio.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <time.h>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <bcm_host.h>
@@ -74,6 +75,8 @@ Registers and relevant bit assignments for setting up GPCLK
 #define PCM_INTSTC_REG 7
 #define PCM_GRAY_REG   8
 
+#define TXCLR (1 << 3)
+#define RXCLR (1 << 4)
 
 /*
 ********************** GPIO CONTROL ************************

@@ -14,6 +14,8 @@ static volatile unsigned * gpio = 0;
 static volatile unsigned * clk_ctrl = 0;
 static volatile unsigned * pcm = 0;
 
+static unsigned syncWait;
+
 // ************************* GPIO FUNCTIONS *********************************
 
 static bool setPinMode(char pin, char mode) {
@@ -176,6 +178,22 @@ static void initDMAMode() {
 
 }
 
+// determine the delay (in microseconds) between writing to SYNC in PCM CTRL reg
+// and reading back the value written. This corresponds to ~2 PCM clk cycles
+// should only need to call once to get an idea of how long to delay the program
+static unsigned getSyncDelay() {
+    char sync, notSync;
+    // get current sync value
+    sync = (pcm(PCM_CTRL_REG) >> 24) & 1;
+    notSync = sync^1;
+    // write opposite value back to reg
+    pcm(PCM_CTRL_REG) &= ~(sync<<24);
+    // start timer
+    while ((pcm(PCM_CTRL_REG) >> 24) & notSync);
+    // stop timer
+    return;
+}
+
 /*
 mode = 0 --> polled mode
 mode = 1 --> interrupt mode
@@ -213,14 +231,15 @@ void initPCM(char mode, bool clockMode, bool frameSyncMode, char frameLength, ch
         widthBits -= 16;
     unsigned short channel1Bits, channel2Bits;
     channel1Bits = (widthExtension << 15) | widthBits;
-    channel2Bits = channel1Bits | (dataWidth << 4); // offset CH2 pos in frame
+    channel2Bits = channel1Bits | (dataWidth << 4); // o(ffset CH2 pos in frame
     int txrxInitBits = (channel1Bits << 16) | channel2Bits;
     pcm(PCM_RXC_REG) |= txrxInitBits;
     pcm(PCM_TXC_REG) |= txrxInitBits;
     // assert RXCLR & TXCLR
-
+    pcm(PCM_CTRL_REG) |= TXCLR | RXCLR;
+    syncWait = getSyncDelay();
     // wait 2 PCM clks for FIFO to reset
-    
+    while((pcm(PCM_CTRL_REG)>>24)^1);
     switch(mode) {
         case 1:
         {
