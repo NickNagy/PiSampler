@@ -9,18 +9,12 @@ static char clocksRunning;
 static char clockSource;
 static unsigned clockSourceFreq;
 
-static volatile unsigned int bcm_base = 0;
-static volatile unsigned int * gpio = 0;
-static volatile unsigned int * clk_ctrl = 0;
+static volatile unsigned bcm_base = 0;
+static volatile unsigned * gpio = 0;
+static volatile unsigned * clk_ctrl = 0;
+static volatile unsigned * pcm = 0;
 
-static int getSourceFrequency(char src) {
-    switch (src) {
-        case OSC: return OSC_FREQ;
-        case PLLC: return PLLC_FREQ;
-        case PLLD: return PLLD_FREQ;
-        default: return 0;
-    }
-}
+// ************************* GPIO FUNCTIONS *********************************
 
 static bool setPinMode(char pin, char mode) {
     if (mode > 7) {
@@ -33,25 +27,51 @@ static bool setPinMode(char pin, char mode) {
     return 1;
 }
 
-static bool clockIsBusy(int clock_ctrl_reg) {
-    return (((clock_ctrl_reg)>>7) & 1);
-}
-
-// assumes mash = 0 or mash = 1
-int setDiv(unsigned freq, bool mash) {
-    float diviFloat = (float)clockSourceFreq / freq;
-    int divi = (int)diviFloat;
-    if (mash) 
-        return (divi << 12) | (int)(4096 * (diviFloat - divi));
-    return divi << 12;
-}
-
 void setPinHigh(char n) {
     gpio[GPIO_SET_REG] |= (1 << n);
 }
 
 void setPinLow(char n) {
     gpio[GPIO_CLR_REG] |= (1 << n);
+}
+
+void LEDTest(char pin, unsigned char numBlinks, unsigned delay_seconds) {
+    unsigned delay_us = 1000000 * delay_seconds;
+    int fsel_reg = pin/10;
+    int pinR = pin % 10;
+    setPinMode(pin, 1);
+    if (VERBOSE) PRINT_REG("FSEL", gpio[fsel_reg]);
+    for (char i = 0; i < numBlinks; i++) {
+        printf("%d\n",i);
+        setPinHigh(pin);
+        usleep(delay_us);
+        setPinLow(pin);
+        usleep(delay_us);
+    }
+}
+
+// ************************** CLOCK FUNCTIONS ********************************
+
+static int getSourceFrequency(char src) {
+    switch (src) {
+        case OSC: return OSC_FREQ;
+        case PLLC: return PLLC_FREQ;
+        case PLLD: return PLLD_FREQ;
+        default: return 0;
+    }
+}
+
+static bool clockIsBusy(int clock_ctrl_reg) {
+    return (((clock_ctrl_reg)>>7) & 1);
+}
+
+// assumes mash = 0 or mash = 1
+static int setDiv(unsigned freq, bool mash) {
+    float diviFloat = (float)clockSourceFreq / freq;
+    int divi = (int)diviFloat;
+    if (mash) 
+        return (divi << 12) | (int)(4096 * (diviFloat - divi));
+    return divi << 12;
 }
 
 static bool isValidClockSelection(char clockNum) {
@@ -86,7 +106,19 @@ void disableClock(char clockNum) {
     clocksRunning &= ~(1 << clockNum);
 }
 
-static int initClock(char clockNum, unsigned frequency, bool mash) {
+void disableAllClocks() {
+    if (VERBOSE)
+        printf("Disabling all clocks...\n");
+    for (int i = 0; i < 3; i++) {
+        if ((clocksRunning >> i) & 1)
+            disableClock(i);
+    }
+    if (VERBOSE)
+        printf("Clocks running = %d\n", clocksRunning);
+    clocksInitialized = 0;
+}
+
+int initClock(char clockNum, unsigned frequency, bool mash) {
     if (!isValidClockSelection(clockNum)) return 1;
     if((clocksRunning >> clockNum) & 1) 
         disableClock(clockNum);
@@ -104,7 +136,7 @@ static int initClock(char clockNum, unsigned frequency, bool mash) {
     return 0;
 }
 
-static int startClock(char clockNum) {
+int startClock(char clockNum) {
     if ((clocksRunning >> clockNum) & 1) {
         printf("Clock %d is already running. You will have to disable it first.\n", clockNum);
         return 1;
@@ -125,22 +157,91 @@ static int startClock(char clockNum) {
     return 0;
 }
 
-void LEDTest(char pin, unsigned char numBlinks, unsigned delay_seconds) {
-    unsigned delay_us = 1000000 * delay_seconds;
-    int fsel_reg = pin/10;
-    int pinR = pin % 10;
-    setPinMode(pin, 1);
-    if (VERBOSE) PRINT_REG("FSEL", gpio[fsel_reg]);
-    for (char i = 0; i < numBlinks; i++) {
-        printf("%d\n",i);
-        setPinHigh(pin);
-        usleep(delay_us);
-        setPinLow(pin);
-        usleep(delay_us);
-    }
+// ************************* PCM FUNCTIONS *****************************
+
+static void checkFrameAndChannelWidth(char frameLength, char dataWidth) {
+    return 0;
 }
 
+static void initPolledMode() {
+
+}
+
+
+static void initInterruptMode() {
+
+}
+
+static void initDMAMode() {
+
+}
+
+/*
+mode = 0 --> polled mode
+mode = 1 --> interrupt mode
+mode = 2 --> DMA mode
+
+For all three modes:
+  - set enable in PCM block
+  - set all operational values to define frame and channel settings
+  - assert RXCLR & TXCLR, wait 2 PCM clks for FIFO to reset (use SYNC to check)
+
+clockMode: 
+    0 = the PCM clk is an output and drives at the MCLK rate
+    1 = the PCM clk is an input
+
+frameSyncMode:
+    0 = PCM_FS is an output we generate 
+    1 = the PCM_FS is an input, we lock onto incoming frame sync signal
+
+dataWidth:
+    width of data per channel
+*/
+void initPCM(char mode, bool clockMode, bool frameSyncMode, char frameLength, char dataWidth) {
+    printf("Initializing PCM interface...");
+    if !(checkFrameAndChannelWidth(frameLength, dataWidth)) {
+        printf("\nERROR: incompatible frame lengths and data widths.\n");
+        return;
+    }
+    pcm(PCM_CTRL_REG) |= 1; // enable set
+    // ...frame and channel settings...
+    pcm(PCM_MODE_REG) |= ((clockMode << 23) | (frameSyncMode << 21) | (frameLength << 10) | frameLength);
+    char widthBits = dataWidth - 8;
+    char widthExtension = 0;
+    if (dataWidth > 24)
+        widthExtension = 1;
+        widthBits -= 16;
+    unsigned short channel1Bits, channel2Bits;
+    channel1Bits = (widthExtension << 15) | widthBits;
+    channel2Bits = channel1Bits | (dataWidth << 4); // offset CH2 pos in frame
+    int txrxInitBits = (channel1Bits << 16) | channel2Bits;
+    pcm(PCM_RXC_REG) |= txrxInitBits;
+    pcm(PCM_TXC_REG) |= txrxInitBits;
+    // assert RXCLR & TXCLR
+
+    // wait 2 PCM clks for FIFO to reset
+    
+    switch(mode) {
+        case 1:
+        {
+            initInterruptMode(); break;
+        }
+        case 2:
+        {
+            initDMAMode(); break;
+        }
+        default:
+        {
+            initDMAMode(); break;
+        }
+    }
+    printf("done.\n");
+}
+
+// ************************* MEMORY MAPPING ****************************
+
 static bool initMemMap() {
+    printf("Initializing memory maps...");
     unsigned bcm_base = bcm_host_get_peripheral_address();
     int fd;
     fd = open("/dev/mem", O_RDWR | O_SYNC);
@@ -148,28 +249,17 @@ static bool initMemMap() {
         printf("Failure to access /dev/mem\n"); 
         return 0;
     }
-    gpio = (unsigned *)mmap(0, GPIO_BASE_MAPSIZE, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_SHARED|MAP_LOCKED, fd, GPIO_BASE);
-    printf("GPIO loaded from /dev/mem beginning at address %p.\n", gpio);
-    clk_ctrl = (unsigned *)mmap(0, CLK_CTRL_BASE_MAPSIZE, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_SHARED|MAP_LOCKED, fd, CLK_CTRL_BASE);
-    printf("clock control and div registers loaded from /dev/mem beginning @ address %p.\n", clk_ctrl);
+    gpio = (unsigned *)mmap(0, GPIO_BASE_MAPSIZE, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_SHARED, fd, GPIO_BASE);
+    clk_ctrl = (unsigned *)mmap(0, CLK_CTRL_BASE_MAPSIZE, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_SHARED, fd, CLK_CTRL_BASE);
+    pcm = (unsigned *)mmap(0, PCM_BASE_MAPSIZE, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_SHARED, fd, PCM_BASE);
+    printf("done.\n");
     return 1;
 }
 
 static void clearMemMap() {
     munmap((void*)gpio, GPIO_BASE_MAPSIZE);
     munmap((void*)clk_ctrl, CLK_CTRL_BASE_MAPSIZE);
-}
-
-void disableAllClocks() {
-    if (VERBOSE)
-        printf("Disabling all clocks...\n");
-    for (int i = 0; i < 3; i++) {
-        if ((clocksRunning >> i) & 1)
-            disableClock(i);
-    }
-    if (VERBOSE)
-        printf("Clocks running = %d\n", clocksRunning);
-    clocksInitialized = 0;
+    munmap((void*)pcm, PCM_BASE_MAPSIZE);
 }
 
 int main(int argc, char** argv) {
@@ -181,9 +271,9 @@ int main(int argc, char** argv) {
     initClock(0, 11289000, 1);
     startClock(0);
     LEDTest(8, 10, 1);
-    disableAllClocks();
-    PRINT_REG("Ctrl", clk_ctrl[CLK_CTRL_REG(0)]);
-    PRINT_REG("Div", clk_ctrl[CLK_DIV_REG(0)]);
+    //disableAllClocks();
+    //PRINT_REG("Ctrl", clk_ctrl[CLK_CTRL_REG(0)]);
+    //PRINT_REG("Div", clk_ctrl[CLK_DIV_REG(0)]);
     clearMemMap();
     return 0;
 }
