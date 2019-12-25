@@ -1,6 +1,10 @@
 #include "pcm.h"
 
+// TODO: check where the page actually starts..
 static unsigned * pcmMap = initMemMap(PCM_BASE_OFFSET, PCM_BASE_MAPSIZE);
+
+static bool pcmInitialized = 0;
+static bool pcmRunning = 0;
 
 static char pcmMode;
 static int syncWait;
@@ -27,31 +31,6 @@ static int getSyncDelay() {
     int usElapsed = ((endTime.tv_sec - initTime.tv_sec)*1000000) + (endTime.tv_usec - startTime.tv_usec);
     // round up
     return usElapsed + (10 - (usElapsed % 10));
-}
-
-/*
-- set TXTHR/RXTHR
-- if transmitting, ensure sufficient sample words have been written to PCMFIFO before
-transmission starts.
-- set TXON and RXON to begin operation
-- poll TXW when writing sample words from FIFO and RXR when reading sample words until all
-data is transferred
-*/
-static void initPolledMode() {
-
-}
-
-/*
-- set TXTHR/RXTHR
-- set INTR and/or INTT to enable interrupts
-- if transmitting, ensure sufficient sample words have been written to PCMFIFO before transmission
-starts.
-- set TXON and RXON to begin operation
-- when an interrupt occurs, check RXR. If this is set, one or more sample words are available in the FIFO.
-If TXW is set then one or more sample words can be sent to the FIFO
-*/
-static void initInterruptMode() {
-
 }
 
 /*
@@ -84,12 +63,29 @@ frameSyncMode:
 
 dataWidth:
     width of data per channel
+
+thresh:
+    TX and RX threshold for when TXW and RXW flags should be set. Only relevant for poll or interrupt mode
+    00 = set when FIFO is empty
+    ...
+    11 = set when FIFO is full
 */
-void initPCM(char mode, bool clockMode, bool frameSyncMode, char frameLength, char dataWidth) {
+void initPCM(char mode, bool clockMode, bool frameSyncMode, char frameLength, char dataWidth, unsigned char thresh) {
+    if (pcmRunning) {
+        printf("ERROR: PCM interface is currently running.\n");
+        return;
+    }
     printf("Initializing PCM interface...");
     if !(checkFrameAndChannelWidth(frameLength, dataWidth)) {
         printf("\nERROR: incompatible frame lengths and data widths.\n");
         return;
+    }
+    if (mode < 2 && thresh > 3) {
+        printf("\nERROR: threshold must be two-bit value for poll or interrupt mode.\n");
+        return;
+    } 
+    if (thresh >= 128) {
+        printf("\nERROR: threshold must be six-bit value for DMA mode.\n");
     }
     pcmMap(PCM_CTRL_REG) |= 1; // enable set
     // ...frame and channel settings...
@@ -109,23 +105,61 @@ void initPCM(char mode, bool clockMode, bool frameSyncMode, char frameLength, ch
     pcmMap(PCM_CTRL_REG) |= TXCLR | RXCLR;
     syncWait = getSyncDelay();
     switch(mode) {
-        case 1:
+        case 1: // interrupt
         {
-            initInterruptMode(); break;
+            pcm(PCM_CTRL_REG) |= (thresh << 7) | (thresh << 5);
+            pcm(PCM_INTEN_REG) |= 3; // enable interrupts
+            break;
         }
-        case 2:
+        case 2: // DMA
         {
-            initDMAMode(); break;
+            pcm(PCM_CTRL_REG) |= (1 << 9); // DMAEN
+            pcm(PCM_DREQ_REG) |= (thresh << 8) | thresh;
+            // TODO: dma.h
+            break;
         }
-        default:
+        default: // polling
         {
-            initDMAMode(); break;
+            pcm(PCM_CTRL_REG) |= (thresh << 7) | (thresh << 5); 
+            break;
         }
     }
     pcmMode = mode;
+    pcmInitialized = 1;
     printf("done.\n");
 }
 
-void startPCM() {
+/* 
+Polling mode:
+    - if transmitting, ensure sufficient sample words have been written to PCMFIFO before
+        transmission starts.
+    - poll TXW when writing sample words from FIFO and RXR when reading sample words until all
+        data is transferred
+Interrupt mode:
+    - if transmitting, ensure sufficient sample words have been written to PCMFIFO before
+        transmission starts.
+    - when an interrupt occurs, check RXR. If this is set, one or more sample words are available in the FIFO.
+        If TXW is set then one or more sample words can be sent to the FIFO
+DMA mode:
 
+*/
+// TODO: start in seperate thread?
+void startPCM() {
+    if (!pcmInitialized) {
+        printf("ERROR: PCM interface has not been initialized yet.\n");
+        return;
+    }
+    // NOTE: transmit FIFO should be pre-loaded with data
+    pcmMap(PCM_CTRL_REG) |= 6; // set TXON and RXON
+    pcmRunning = 1;
+}
+
+// TODO: variable data size
+void toFIFO(int data) {
+    pcmMap(PCM_FIFO_REG) = data;
+}
+
+// TODO: variable data size
+int getFIFOData() {
+    return pcmMap(PCM_FIFO_REG);
 }

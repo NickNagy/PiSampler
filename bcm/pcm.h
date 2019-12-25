@@ -5,7 +5,7 @@
 #include <sys/time.h>
 
 #define PCM_BASE_OFFSET 0x3000
-#define PCM_BASE_MAPSIZE 0x24
+#define PCM_BASE_MAPSIZE 9//0x24
 
 #define PCM_CTRL_REG   0
 #define PCM_FIFO_REG   1
@@ -21,12 +21,6 @@
 #define RXCLR (1 << 4)
 
 static void checkFrameAndChannelWidth(char frameLength, char dataWidth);
-
-static void initPolledMode();
-
-static void initInterruptMode();
-
-static void initDMAMode();
 
 static int getSyncDelay();
 
