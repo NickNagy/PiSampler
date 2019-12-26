@@ -32,6 +32,7 @@ Registers and relevant bit assignments for setting up GPCLK
 // function select
 #define CLK_ALT_SHIFT(x) 12 + FSEL_SHIFT(x)
 #define CLK_FSEL_BITS(x) 4 << CLK_ALT_SHIFT(x)
+#define CLK_DISABLE_BITS 0x5AFFFFE0 // & this with reg bits to disable 
 
 // ctrl and div
 #define CLK_CTRL_REG(x) 28 + (x<<1)

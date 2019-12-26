@@ -79,7 +79,7 @@ void disableClock(char clockNum) {
     if (clk_ctrl[CLK_CTRL_REG(clockNum)] & BUSY) {
         do {
             printf("test...\n");
-            clk_ctrl[CLK_CTRL_REG(clockNum)] &= ~ENABLE;
+            clk_ctrl[CLK_CTRL_REG(clockNum)] &= CLK_DISABLE_BITS;
         }
         while(clk_ctrl[CLK_CTRL_REG(clockNum)] & BUSY);
     }
