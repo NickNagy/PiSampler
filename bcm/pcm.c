@@ -9,13 +9,17 @@ static bool pcmRunning = 0;
 static char pcmMode;
 static int syncWait;
 
+// TODO
 static void checkFrameAndChannelWidth(char frameLength, char dataWidth) {
     return 0;
 }
 
-// determine the delay (in microseconds) between writing to SYNC in PCM CTRL reg
-// and reading back the value written. This corresponds to ~2 PCM clk cycles
-// should only need to call once to get an idea of how long to delay the program
+/*
+determine the delay (in microseconds) between writing to SYNC in PCM CTRL reg
+and reading back the value written. This corresponds to ~2 PCM clk cycles
+
+should only need to call once to get an idea of how long to delay the program
+*/ 
 static int getSyncDelay() {
     char sync, notSync;
     timeval initTime, endTime;
@@ -33,14 +37,60 @@ static int getSyncDelay() {
     return usElapsed + (10 - (usElapsed % 10));
 }
 
-/*
-- set DMAEN to enable DMA DREQ generation. Set RXREQ/TXREQ to determine FIFO thresholds 
-for DREQs. If required, set TXPANIC and RXPANIC
-- in DMA controllers set correct DREQ channels, 1 for RX, 1 for TX. Start the DMA
-- set TXON and RXON to begin operation
-*/ 
-static void initDMAMode() {
+static bool checkInitParams(char mode, bool clockMode, char numChannels, char frameLength, char dataWidth, unsigned char thresh) {
+    bool error = 0;
+    if (mode < 0 || mode > 2) {
+        printf("ERROR: please select from the following for MODE:\n\t0: polling mode\n\t1: interrupt mode\n\t\2: DMA mode\n");
+        error = 1;
+    }
+    if (!clockMode && !checkFrameAndChannelWidth(frameLength, dataWidth)) {
+        printf("ERROR: incompatible frame lengths and data widths.\n");
+        error = 1;
+    }
+    if (numChannels < 1 || numChannels > 2) {
+        printf("ERROR: valid number of channels are 1 or 2.\n");
+        error = 1;
+    }
+    if (dataWidth > 32) {
+        printf("ERROR: maximum data width available is 32 bits.\n");
+        error = 1;
+    } else if (dataWidth % 8) {
+        printf("ERROR: please set data width to be a multiple of 8 bits.\n");
+        error = 1;
+    }
+    if (mode < 2 && thresh > 3) {
+        printf("ERROR: threshold must be two-bit value for poll or interrupt mode.\n");
+        error = 1;
+    } 
+    if (mode == 2 && thresh >= 128) {
+        printf("ERROR: threshold must be six-bit value for DMA mode.\n");
+        error = 1;
+    }
+    return !error;
+}
 
+static void initRXTXControlRegisters(bool clockMode, char numChannels, char dataWidth) {
+    char widthBits, widthExtension;
+    unsigned short channel1Bits, channel2Bits;   
+    int txrxInitBits;
+    /*
+    if PMOD is in master mode then only SSM is supported, which means if we have 2 channels
+    we want 16b data and packed mode set
+    */
+    if (clockMode && numChannels==2) {
+        if (dataWidth > 16) {
+            printf("\nTruncating channel width to 16 bits...\n");
+            dataWidth = 16;
+        }
+        pcm(PCM_MODE_REG) |= 3 << 24; // set FRXP & FTXP if not already set
+    }
+    widthBits = (dataWidth > 24) ? dataWidth - 24: dataWidth - 8;
+    widthExtension = (dataWidth > 24) ? 1: 0;
+    channel1Bits = (widthExtension << 15) | (1 << 4) | widthBits; // start @ clk 1 of frame
+    channel2Bits = channel1Bits | (32 << 4); // start 32 bits after ch1 (assuming SCLK/LRCLK == 64)
+    txrxInitBits = (channel1Bits << 16) | channel2Bits;
+    pcmMap(PCM_RXC_REG) = txrxInitBits;
+    pcmMap(PCM_TXC_REG) = txrxInitBits;
 }
 
 /*
@@ -48,59 +98,34 @@ mode = 0 --> polled mode
 mode = 1 --> interrupt mode
 mode = 2 --> DMA mode
 
-For all three modes:
-  - set enable in PCM block
-  - set all operational values to define frame and channel settings
-  - assert RXCLR & TXCLR, wait 2 PCM clks for FIFO to reset (use SYNC to check)
-
 clockMode: 
     0 = the PCM clk is an output and drives at the MCLK rate
     1 = the PCM clk is an input
-
-frameSyncMode:
-    0 = PCM_FS is an output we generate 
-    1 = the PCM_FS is an input, we lock onto incoming frame sync signal
-
-dataWidth:
-    width of data per channel
-
+fallingEdgeInput: used for programming CLKI in MODE reg
+    0 = data is clocked in on rising edge of clk and outputted on falling edge
+    1 = data is clocked in on falling edge of clk and outputted on rising edge
+frameLength: ** irrelevant when clockMode==1 **
+dataWidth: width of data per channel. Should be max 32 bits, and should be a multiple of 8 bits
 thresh:
     TX and RX threshold for when TXW and RXW flags should be set. Only relevant for poll or interrupt mode
     00 = set when FIFO is empty
     ...
     11 = set when FIFO is full
 */
-void initPCM(char mode, bool clockMode, bool frameSyncMode, char frameLength, char dataWidth, unsigned char thresh) {
+void initPCM(char mode, bool clockMode, bool fallingEdgeInput, char numChannels, char frameLength, char dataWidth, unsigned char thresh) {
     if (pcmRunning) {
-        printf("ERROR: PCM interface is currently running.\n");
+        printf("ERROR: PCM interface is currently running.\nAborting...\n");
+        return;
+    }
+    if (!checkInitParams(mode, clockMode, numChannels, frameLength, dataWidth, thresh)) {
+        printf("Aborting...\n");
         return;
     }
     printf("Initializing PCM interface...");
-    if !(checkFrameAndChannelWidth(frameLength, dataWidth)) {
-        printf("\nERROR: incompatible frame lengths and data widths.\n");
-        return;
-    }
-    if (mode < 2 && thresh > 3) {
-        printf("\nERROR: threshold must be two-bit value for poll or interrupt mode.\n");
-        return;
-    } 
-    if (thresh >= 128) {
-        printf("\nERROR: threshold must be six-bit value for DMA mode.\n");
-    }
     pcmMap(PCM_CTRL_REG) |= 1; // enable set
-    // ...frame and channel settings...
-    pcmMap(PCM_MODE_REG) |= ((clockMode << 23) | (frameSyncMode << 21) | (frameLength << 10) | frameLength);
-    char widthBits = dataWidth - 8;
-    char widthExtension = 0;
-    if (dataWidth > 24)
-        widthExtension = 1;
-        widthBits -= 16;
-    unsigned short channel1Bits, channel2Bits;
-    channel1Bits = (widthExtension << 15) | widthBits;
-    channel2Bits = channel1Bits | (dataWidth << 4); // o(ffset CH2 pos in frame
-    int txrxInitBits = (channel1Bits << 16) | channel2Bits;
-    pcmMap(PCM_RXC_REG) |= txrxInitBits;
-    pcmMap(PCM_TXC_REG) |= txrxInitBits;
+    // CLKM == FSM
+    pcmMap(PCM_MODE_REG) = ((clockMode << 23) | (fallingEdgeInput << 22) | (clockMode << 21) | (frameLength << 10) | frameLength);
+    initRXTXControlRegisters(clockMode, numChannels, dataWidth);
     // assert RXCLR & TXCLR, wait 2 PCM clk cycles
     pcmMap(PCM_CTRL_REG) |= TXCLR | RXCLR;
     syncWait = getSyncDelay();
@@ -111,7 +136,7 @@ void initPCM(char mode, bool clockMode, bool frameSyncMode, char frameLength, ch
             pcm(PCM_INTEN_REG) |= 3; // enable interrupts
             break;
         }
-        case 2: // DMA
+        case 2: // DMA // TODO
         {
             pcm(PCM_CTRL_REG) |= (1 << 9); // DMAEN
             pcm(PCM_DREQ_REG) |= (thresh << 8) | thresh;
@@ -129,6 +154,27 @@ void initPCM(char mode, bool clockMode, bool frameSyncMode, char frameLength, ch
     printf("done.\n");
 }
 
+void directLineInLineOut() {
+    switch(pmMode) {
+        case 1: { // interrupt
+            break;
+        }
+        case 2: { // DMA
+            break;
+        }
+        default: { // polling
+            while(1) {
+                // wait for enough data in RX to be receivable
+                while(!(pcmMap(PCM_INTSTC_REG) & 2));
+                pcmMap(PCM_CTRL_REG) &= RXOFFTXON;
+                while(!(pcmMap(PCM_INTSTC_REG) & 1));
+                pcmMap(PCM_CTRL_REG) &= RXONTXOFF;
+            }
+            break;
+        }
+    }
+}
+
 /* 
 Polling mode:
     - if transmitting, ensure sufficient sample words have been written to PCMFIFO before
@@ -144,22 +190,36 @@ DMA mode:
 
 */
 // TODO: start in seperate thread?
-void startPCM() {
+void startPCM(char runMode) {
     if (!pcmInitialized) {
         printf("ERROR: PCM interface has not been initialized yet.\n");
         return;
     }
-    // NOTE: transmit FIFO should be pre-loaded with data
-    pcmMap(PCM_CTRL_REG) |= 6; // set TXON and RXON
+    int data;
     pcmRunning = 1;
-}
-
-// TODO: variable data size
-void toFIFO(int data) {
-    pcmMap(PCM_FIFO_REG) = data;
-}
-
-// TODO: variable data size
-int getFIFOData() {
-    return pcmMap(PCM_FIFO_REG);
+    // NOTE: transmit FIFO should be pre-loaded with data
+    pcmMap(PCM_FIFO_REG) = 0;
+    //pcmMap(PCM_CTRL_REG) |= 6; // set TXON and RXON
+    pcmMap(PCM_CTRL_REG) &= RXONTXOFF;
+    switch(pcmMode) {
+        case 1: { // interrupt
+            break;
+        }
+        case 2: { // DMA
+            break;
+        }
+        default: { // polling
+            while(1) {
+                // wait for enough data in RX to be receivable
+                while(pcmMap(PCM_INTSTC_REG) & 2);
+                pcmMap(PCM_CTRL_REG) &= RXOFFTXOFF;
+                data = pcmMap(PCM_FIFO_REG);
+                // check for when enough space in TX to write data to
+                pcmMap(PCM_FIFO_REG) = data;
+                pcmMap(PCM_CTRL_REG) &= RXOFFTXON;
+                pcmMap(PCM_CTRL_REG) &= RXOFFTXOFF;
+            }
+            break;
+        }
+    }
 }
