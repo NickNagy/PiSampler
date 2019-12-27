@@ -6,7 +6,7 @@
 #include "../globals.h"
 #include <sys/time.h>
 
-#define PCM_BASE_OFFSET 0x3000
+#define PCM_BASE_OFFSET 0x203000
 #define PCM_BASE_MAPSIZE 9//0x24
 
 #define PCM_CTRL_REG   0
