@@ -35,6 +35,7 @@ void initPMOD(bool mode, char pcmMode, char thresh) {//char dataWidth) {
             // frame length irrelevant for master mode
             if (DEBUG) printf("PMOD in master mode.\n");
             initPCM(pcmMode, 1, 0, PMOD_CHANNELS, 0, dataWidth, 1, thresh);
+            break;
         }
         default: {
             // need to set PCM clk and PCM_FS clk on Pi...
@@ -42,6 +43,7 @@ void initPMOD(bool mode, char pcmMode, char thresh) {//char dataWidth) {
             if (DEBUG) printf("PMOD in slave mode.\n");
             determineDataWidth();
             initPCM(pcmMode, 0, 0, PMOD_CHANNELS, determineFrameLength(), dataWidth, 1, thresh);
+            break;
         }
     }
 }

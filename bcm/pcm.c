@@ -9,7 +9,7 @@ static int syncWait;
 
 // TODO
 static bool checkFrameAndChannelWidth(char frameLength, char dataWidth, char ch1Pos) {
-    return 1;
+    return 0;
 }
 
 static bool checkInitParams(char mode, bool clockMode, char numChannels, char frameLength, char dataWidth, char ch1Pos, unsigned char thresh) {

@@ -8,7 +8,7 @@
 // function select register for GPCLK0, GPCLK1, GPCLK2
 // clock control registers start at +0x101070, but this is not a multiple of our system page size, so we have to start from +0x101000
 #define CLK_CTRL_BASE_OFFSET 0x101000
-#define CLK_CTRL_BASE_MAPSIZE 0xA8 // need to hold up to 0x101088
+#define CLK_CTRL_BASE_MAPSIZE 0x88 // 0xA8 // need to hold up to 0x101088
 
 // function select
 #define CLK_ALT_SHIFT(x) 12 + FSEL_SHIFT(x)
