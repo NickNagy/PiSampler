@@ -104,20 +104,6 @@ static void initRXTXControlRegisters(pcmExternInterface * ext) {
 mode = 0 --> polled mode
 mode = 1 --> interrupt mode
 mode = 2 --> DMA mode
-
-clockMode: 
-    0 = the PCM clk is an output and drives at the MCLK rate
-    1 = the PCM clk is an input
-fallingEdgeInput: used for programming CLKI in MODE reg
-    0 = data is clocked in on rising edge of clk and outputted on falling edge
-    1 = data is clocked in on falling edge of clk and outputted on rising edge
-frameLength: ** irrelevant when clockMode==1 **
-dataWidth: width of data per channel. Should be max 32 bits, and should be a multiple of 8 bits
-thresh:
-    TX and RX threshold for when TXW and RXW flags should be set. Only relevant for poll or interrupt mode
-    00 = set when FIFO is empty
-    ...
-    11 = set when FIFO is full
 */
 void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode) {
     if (!pcmMap) {
@@ -136,7 +122,7 @@ void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode) {
         return;
     }
     printf("Initializing PCM interface...");
-    pcmMap[PCM_CTRL_REG] &= CLEAR_CTRL_BITS | 1; // clear register and set enable bit
+    pcmMap[PCM_CTRL_REG] = (pcmMap[PCM_CTRL_REG] & CLEAR_CTRL_BITS) + 1; // clear register and set enable bit
     // CLKM == FSM
     pcmMap[PCM_MODE_REG] = ((ext->isMasterDevice << 23) | (!ext->inputOnFallingEdge << 22) | (ext->isMasterDevice << 21) | (ext->frameLength << 10) | ext->frameLength);
     DEBUG_REG("Mode reg", pcmMap[PCM_MODE_REG]);
@@ -168,27 +154,6 @@ void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode) {
     pcmMode = mode;
     pcmInitialized = 1;
     printf("done.\n");
-}
-
-void directLineInLineOut() {
-    switch(pcmMode) {
-        case 1: { // interrupt
-            break;
-        }
-        case 2: { // DMA
-            break;
-        }
-        default: { // polling
-            while(1) {
-                // wait for enough data in RX to be receivable
-                while(!(pcmMap[PCM_INTSTC_REG] & 2));
-                pcmMap[PCM_CTRL_REG] &= RXOFFTXON;
-                while(!(pcmMap[PCM_INTSTC_REG] & 1));
-                pcmMap[PCM_CTRL_REG] &= RXONTXOFF;
-            }
-            break;
-        }
-    }
 }
 
 /* 
@@ -227,13 +192,11 @@ void startPCM() {
         default: { // polling
             while(1) {
                 // wait for enough data in RX to be receivable
-                while(pcmMap[PCM_INTSTC_REG] & 2);
-                pcmMap[PCM_CTRL_REG] &= RXOFFTXOFF;
-                data = pcmMap[PCM_FIFO_REG];
-                // check for when enough space in TX to write data to
-                pcmMap[PCM_FIFO_REG] = data;
+                while(!(pcmMap[PCM_INTSTC_REG] & 2));
                 pcmMap[PCM_CTRL_REG] &= RXOFFTXON;
-                pcmMap[PCM_CTRL_REG] &= RXOFFTXOFF;
+                // wait for enough data in TX to be transmitted
+                while(!(pcmMap[PCM_INTSTC_REG] & 1));
+                pcmMap[PCM_CTRL_REG] &= RXONTXOFF;
             }
             break;
         }
