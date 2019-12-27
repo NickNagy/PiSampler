@@ -139,6 +139,7 @@ void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode) {
     pcmMap[PCM_CTRL_REG] &= CLEAR_CTRL_BITS | 1; // clear register and set enable bit
     // CLKM == FSM
     pcmMap[PCM_MODE_REG] = ((ext->isMasterDevice << 23) | (!ext->inputOnFallingEdge << 22) | (ext->isMasterDevice << 21) | (ext->frameLength << 10) | ext->frameLength);
+    DEBUG_REG("Mode reg", pcmMap[PCM_MODE_REG]);
     initRXTXControlRegisters(ext);
     // assert RXCLR & TXCLR, wait 2 PCM clk cycles
     pcmMap[PCM_CTRL_REG] |= TXCLR | RXCLR;    

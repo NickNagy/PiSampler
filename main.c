@@ -20,5 +20,6 @@ int main(int agrc, char ** argv) {
 	initClock(0, 11289600, 1, PLLD);
 	startClock(0);
 	initPCM(&pmodMaster, 0, POLL_MODE);
+	startPCM();
 	return 0;
 }
