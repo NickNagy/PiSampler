@@ -1,6 +1,7 @@
 #ifndef CLK_H
 #define CLK_H
 
+#include "../globals.h"
 #include "pimem.h"
 #include "gpio.h"
 
@@ -35,7 +36,7 @@
 #define PLLC 5
 #define PLLD 6
 
-static int setDiv(unsigned freq, bool mash);
+static int setDiv(unsigned targetFreq, unsigned sourceFreq, bool mash);
 
 bool clockIsBusy(int clock_ctrl_reg);
 
@@ -47,7 +48,7 @@ void disableClock(char clockNum);
 
 int startClock(char clockNum);
 
-int initClock(char clockNum, unsigned frequency, bool mash);
+int initClock(char clockNum, unsigned frequency, bool mash, char clockSource);
 
 void disableAllClocks();
 

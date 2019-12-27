@@ -1,6 +1,7 @@
 #ifndef PMOD_H
 #define PMOD_H
 
+#include "globals.h"
 #include "bcm/gpio.h"
 #include "bcm/clk.h"
 #include "bcm/pcm.h"

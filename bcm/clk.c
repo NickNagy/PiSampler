@@ -1,13 +1,12 @@
 #include "clk.h"
 
-//static bool clockMapInitialized = 0;
-static unsigned * clkMap = initMemMap(CLK_CTRL_BASE_OFFSET, CLK_CTRL_BASE_MAPSIZE);
+static unsigned * clkMap;
 static char clocksInitialized;
 static char clocksRunning;
 
 // assumes mash = 0 or mash = 1
-static int setDiv(unsigned freq, bool mash) {
-    float diviFloat = (float)clockSourceFreq / freq;
+static int setDiv(unsigned targetFreq, unsigned sourceFreq, bool mash) {
+    float diviFloat = (float)sourceFreq / targetFreq;
     int divi = (int)diviFloat;
     if (mash) 
         return (divi << 12) | (int)(4096 * (diviFloat - divi));
@@ -72,10 +71,8 @@ void disableAllClocks() {
 }
 
 int initClock(char clockNum, unsigned frequency, bool mash, char clockSource) {
-    //if (!clockMapInitialized) {
-    //    
-    //    clockMapInitialized = 1;
-    //}
+    if (!clkMap)
+        clkMap = initMemMap(CLK_CTRL_BASE_OFFSET, CLK_CTRL_BASE_MAPSIZE);
     if (!isValidClockSelection(clockNum)) {
         printf("Not a valid clock selection.\n");
         return 1;
@@ -87,7 +84,7 @@ int initClock(char clockNum, unsigned frequency, bool mash, char clockSource) {
     }
     if((clocksRunning >> clockNum) & 1) 
         disableClock(clockNum);
-    clkMap[CLK_DIV_REG(clockNum)] = (CLK_PASSWD | setDiv(frequency, mash));
+    clkMap[CLK_DIV_REG(clockNum)] = (CLK_PASSWD | setDiv(frequency, sourceFrequency, mash));
     usleep(10);
     clkMap[CLK_CTRL_REG(clockNum)] = (CLK_PASSWD | MASH(mash) | clockSource);
     usleep(10);
@@ -109,12 +106,6 @@ int startClock(char clockNum) {
     if (!((clocksInitialized >> clockNum) & 1)) {
         printf("ERROR: clock %d hasn't been initialized.\n", clockNum);
         return 1;
-    }
-    if (VERBOSE) {
-        unsigned divi = (clkMap[CLK_DIV_REG(clockNum)] >> 12) & 0xFFF;
-        unsigned divf = clkMap[CLK_DIV_REG(clockNum)] & 0xFFF; 
-        unsigned clockFreq = (unsigned) clockSourceFreq / (divi + (divf/4096.0));
-        printf("Starting clock %d @ %d Hz...\n", clockNum, clockFreq);
     }
     clocksRunning |= (1 << clockNum);
     clkMap[CLK_CTRL_REG(clockNum)] |= (CLK_PASSWD | ENABLE);

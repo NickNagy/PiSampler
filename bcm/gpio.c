@@ -1,9 +1,18 @@
 #include "gpio.h"
 
-static unsigned * gpioMap = initMemMap(GPIO_BASE_OFFSET, GPIO_BASE_MAPSIZE);
+static unsigned * gpioMap;
+
+// please call this function in your main() before everything else
+void initGPIO() {
+    printf("Initializing GPIO...");
+    gpioMap = initMemMap(GPIO_BASE_OFFSET, GPIO_BASE_MAPSIZE);
+    printf("done.\n");
+}
 
 // not static because needed by clk.h ?
 bool setPinMode(char pin, char mode) {
+    if (!gpioMap)
+        initGPIO();
     if (mode > 7) {
         printf("ERROR: INVALID MODE.\n");
         return 0;
@@ -15,10 +24,14 @@ bool setPinMode(char pin, char mode) {
 }
 
 void setPinHigh(char n) {
+    if (!gpioMap)
+        initGPIO();
     gpioMap[GPIO_SET_REG] |= (1 << n);
 }
 
 void setPinLow(char n) {
+    if (!gpioMap)
+        initGPIO();
     gpioMap[GPIO_CLR_REG] |= (1 << n);
 }
 

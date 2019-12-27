@@ -2,6 +2,7 @@
 #define PCM_H
 
 #include "pimem.h"
+#include "../globals.h"
 #include <sys/time.h>
 
 #define PCM_BASE_OFFSET 0x3000
@@ -17,14 +18,25 @@
 #define PCM_INTSTC_REG 7
 #define PCM_GRAY_REG   8
 
-#define TXCLR (1 << 3)
-#define RXCLR (1 << 4)
+#define TXCLR 8
+#define RXCLR 16
 
-static void checkFrameAndChannelWidth(char frameLength, char dataWidth);
+// bitwise-OR with CTRL register
+#define RXONTXON 6
+// bitwise-AND with CTRL register
+#define RXOFFTXOFF 0xFFFFFFF9
+#define RXOFFTXON  0xFFFFFFFD//4
+#define RXONTXOFF  0xFFFFFFFB//2
+
+static bool checkFrameAndChannelWidth(char frameLength, char dataWidth);
+
+static bool checkInitParams(char mode, bool clockMode, char numChannels, char frameLength, char dataWidth, unsigned char thresh);
 
 static int getSyncDelay();
 
-void initPCM();
+static void initRXTXControlRegisters(bool clockMode, char numChannels, char dataWidth);
+
+void initPCM(char mode, bool clockMode, bool fallingEdgeInput, char numChannels, char frameLength, char dataWidth, unsigned char thresh);
 
 void startPCM();
 
