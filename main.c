@@ -1,16 +1,12 @@
 #include <stdio.h>
-#include <pthread.h>
-#include "pmod.h"
+#include "bcm/pimem.h"
 #include "bcm/gpio.h"
 #include "bcm/clk.h"
-#include "bcm/pcm.h"
-
-void * runPMODInterface(void * rM) {
-    char runMode = *((char *)rM);
-    
-}
+#include "pmod.h"
+#include "globals.h"
 
 int main() {
-    pthread_t PMODThread;
-    initPMOD();
+	initGPIO();
+	initPMOD(0, 0, 0);
+	return 0;
 }

@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdbool.h>
+#include <fcntl.h>
 #include <sys/mman.h>
 #include <bcm_host.h>
 

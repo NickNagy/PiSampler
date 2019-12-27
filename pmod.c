@@ -28,7 +28,7 @@ dataWidth:
 
 */
 void initPMOD(bool mode, char pcmMode, char thresh) {//char dataWidth) {
-    initClock(0, 112896000, 1, PLLD); // TODO: generalize to make more options for MCLK freq
+    //initClock(0, 112896000, 1, PLLD); // TODO: generalize to make more options for MCLK freq
     switch(mode) {
         case 0: {
             // frame length irrelevant for master mode

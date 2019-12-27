@@ -1,40 +1,15 @@
 #include "pcm.h"
 
-// TODO: check where the page actually starts..
-static unsigned * pcmMap = initMemMap(PCM_BASE_OFFSET, PCM_BASE_MAPSIZE);
-
-static bool pcmInitialized = 0;
-static bool pcmRunning = 0;
+static unsigned * pcmMap; 
+static bool pcmInitialized;
+static bool pcmRunning;
 
 static char pcmMode;
 static int syncWait;
 
 // TODO
-static void checkFrameAndChannelWidth(char frameLength, char dataWidth) {
+static bool checkFrameAndChannelWidth(char frameLength, char dataWidth) {
     return 0;
-}
-
-/*
-determine the delay (in microseconds) between writing to SYNC in PCM CTRL reg
-and reading back the value written. This corresponds to ~2 PCM clk cycles
-
-should only need to call once to get an idea of how long to delay the program
-*/ 
-static int getSyncDelay() {
-    char sync, notSync;
-    timeval initTime, endTime;
-    // get current sync value
-    sync = (pcmMap(PCM_CTRL_REG) >> 24) & 1;
-    notSync = sync^1;
-    // write opposite value back to reg
-    pcmMap(PCM_CTRL_REG) &= ~(sync<<24);
-    // time
-    gettimeofday(&initTime);
-    while ((pcmMap(PCM_CTRL_REG) >> 24) & notSync);
-    gettimeofday(&endTime);
-    int usElapsed = ((endTime.tv_sec - initTime.tv_sec)*1000000) + (endTime.tv_usec - startTime.tv_usec);
-    // round up
-    return usElapsed + (10 - (usElapsed % 10));
 }
 
 static bool checkInitParams(char mode, bool clockMode, char numChannels, char frameLength, char dataWidth, unsigned char thresh) {
@@ -69,6 +44,30 @@ static bool checkInitParams(char mode, bool clockMode, char numChannels, char fr
     return !error;
 }
 
+/*
+determine the delay (in microseconds) between writing to SYNC in PCM CTRL reg
+and reading back the value written. This corresponds to ~2 PCM clk cycles
+
+should only need to call once to get an idea of how long to delay the program
+*/ 
+static int getSyncDelay() {
+    char sync, notSync;
+    struct timeval initTime, endTime;
+    // get current sync value
+    sync = (pcmMap[PCM_CTRL_REG] >> 24) & 1;
+    notSync = sync^1;
+    // write opposite value back to reg
+    pcmMap[PCM_CTRL_REG] &= ~(sync<<24);
+    // time
+    gettimeofday(&initTime, NULL);
+    while ((pcmMap[PCM_CTRL_REG] >> 24) & notSync);
+    gettimeofday(&endTime, NULL);
+    int usElapsed = ((endTime.tv_sec - initTime.tv_sec)*1000000) + (endTime.tv_usec - initTime.tv_usec);
+    DEBUG_VAL("2-cycle PCM clk delay in micros", (usElapsed + (10 - (usElapsed % 10))));
+    // round up
+    return usElapsed + (10 - (usElapsed % 10));
+}
+
 static void initRXTXControlRegisters(bool clockMode, char numChannels, char dataWidth) {
     char widthBits, widthExtension;
     unsigned short channel1Bits, channel2Bits;   
@@ -82,15 +81,16 @@ static void initRXTXControlRegisters(bool clockMode, char numChannels, char data
             printf("\nTruncating channel width to 16 bits...\n");
             dataWidth = 16;
         }
-        pcm(PCM_MODE_REG) |= 3 << 24; // set FRXP & FTXP if not already set
+        pcmMap[PCM_MODE_REG] |= 3 << 24; // set FRXP & FTXP if not already set
     }
     widthBits = (dataWidth > 24) ? dataWidth - 24: dataWidth - 8;
     widthExtension = (dataWidth > 24) ? 1: 0;
     channel1Bits = (widthExtension << 15) | (1 << 4) | widthBits; // start @ clk 1 of frame
     channel2Bits = channel1Bits | (32 << 4); // start 32 bits after ch1 (assuming SCLK/LRCLK == 64)
     txrxInitBits = (channel1Bits << 16) | channel2Bits;
-    pcmMap(PCM_RXC_REG) = txrxInitBits;
-    pcmMap(PCM_TXC_REG) = txrxInitBits;
+    pcmMap[PCM_RXC_REG] = txrxInitBits;
+    pcmMap[PCM_TXC_REG] = txrxInitBits;
+    DEBUG_REG("RX reg", pcmMap[PCM_RXC_REG]);
 }
 
 /*
@@ -113,6 +113,8 @@ thresh:
     11 = set when FIFO is full
 */
 void initPCM(char mode, bool clockMode, bool fallingEdgeInput, char numChannels, char frameLength, char dataWidth, unsigned char thresh) {
+    if (!pcmMap)
+        pcmMap = initMemMap(PCM_BASE_OFFSET, PCM_BASE_MAPSIZE);
     if (pcmRunning) {
         printf("ERROR: PCM interface is currently running.\nAborting...\n");
         return;
@@ -122,40 +124,41 @@ void initPCM(char mode, bool clockMode, bool fallingEdgeInput, char numChannels,
         return;
     }
     printf("Initializing PCM interface...");
-    pcmMap(PCM_CTRL_REG) |= 1; // enable set
+    pcmMap[PCM_CTRL_REG] |= 1; // enable set
     // CLKM == FSM
-    pcmMap(PCM_MODE_REG) = ((clockMode << 23) | (fallingEdgeInput << 22) | (clockMode << 21) | (frameLength << 10) | frameLength);
+    pcmMap[PCM_MODE_REG] = ((clockMode << 23) | (fallingEdgeInput << 22) | (clockMode << 21) | (frameLength << 10) | frameLength);
     initRXTXControlRegisters(clockMode, numChannels, dataWidth);
     // assert RXCLR & TXCLR, wait 2 PCM clk cycles
-    pcmMap(PCM_CTRL_REG) |= TXCLR | RXCLR;
+    pcmMap[PCM_CTRL_REG] |= TXCLR | RXCLR;    
     syncWait = getSyncDelay();
     switch(mode) {
         case 1: // interrupt
         {
-            pcm(PCM_CTRL_REG) |= (thresh << 7) | (thresh << 5);
-            pcm(PCM_INTEN_REG) |= 3; // enable interrupts
+            pcmMap[PCM_CTRL_REG] |= (thresh << 7) | (thresh << 5);
+            pcmMap[PCM_INTEN_REG] |= 3; // enable interrupts
             break;
         }
         case 2: // DMA // TODO
         {
-            pcm(PCM_CTRL_REG) |= (1 << 9); // DMAEN
-            pcm(PCM_DREQ_REG) |= (thresh << 8) | thresh;
+            pcmMap[PCM_CTRL_REG] |= (1 << 9); // DMAEN
+            pcmMap[PCM_DREQ_REG] |= (thresh << 8) | thresh;
             // TODO: dma.h
             break;
         }
         default: // polling
         {
-            pcm(PCM_CTRL_REG) |= (thresh << 7) | (thresh << 5); 
+            pcmMap[PCM_CTRL_REG] |= (thresh << 7) | (thresh << 5); 
             break;
         }
     }
+    DEBUG_REG("Control reg", pcmMap[PCM_CTRL_REG]);
     pcmMode = mode;
     pcmInitialized = 1;
     printf("done.\n");
 }
 
 void directLineInLineOut() {
-    switch(pmMode) {
+    switch(pcmMode) {
         case 1: { // interrupt
             break;
         }
@@ -165,10 +168,10 @@ void directLineInLineOut() {
         default: { // polling
             while(1) {
                 // wait for enough data in RX to be receivable
-                while(!(pcmMap(PCM_INTSTC_REG) & 2));
-                pcmMap(PCM_CTRL_REG) &= RXOFFTXON;
-                while(!(pcmMap(PCM_INTSTC_REG) & 1));
-                pcmMap(PCM_CTRL_REG) &= RXONTXOFF;
+                while(!(pcmMap[PCM_INTSTC_REG] & 2));
+                pcmMap[PCM_CTRL_REG] &= RXOFFTXON;
+                while(!(pcmMap[PCM_INTSTC_REG] & 1));
+                pcmMap[PCM_CTRL_REG] &= RXONTXOFF;
             }
             break;
         }
@@ -190,7 +193,7 @@ DMA mode:
 
 */
 // TODO: start in seperate thread?
-void startPCM(char runMode) {
+void startPCM() {
     if (!pcmInitialized) {
         printf("ERROR: PCM interface has not been initialized yet.\n");
         return;
@@ -198,9 +201,9 @@ void startPCM(char runMode) {
     int data;
     pcmRunning = 1;
     // NOTE: transmit FIFO should be pre-loaded with data
-    pcmMap(PCM_FIFO_REG) = 0;
+    pcmMap[PCM_FIFO_REG] = 0;
     //pcmMap(PCM_CTRL_REG) |= 6; // set TXON and RXON
-    pcmMap(PCM_CTRL_REG) &= RXONTXOFF;
+    pcmMap[PCM_CTRL_REG] &= RXONTXOFF;
     switch(pcmMode) {
         case 1: { // interrupt
             break;
@@ -211,13 +214,13 @@ void startPCM(char runMode) {
         default: { // polling
             while(1) {
                 // wait for enough data in RX to be receivable
-                while(pcmMap(PCM_INTSTC_REG) & 2);
-                pcmMap(PCM_CTRL_REG) &= RXOFFTXOFF;
-                data = pcmMap(PCM_FIFO_REG);
+                while(pcmMap[PCM_INTSTC_REG] & 2);
+                pcmMap[PCM_CTRL_REG] &= RXOFFTXOFF;
+                data = pcmMap[PCM_FIFO_REG];
                 // check for when enough space in TX to write data to
-                pcmMap(PCM_FIFO_REG) = data;
-                pcmMap(PCM_CTRL_REG) &= RXOFFTXON;
-                pcmMap(PCM_CTRL_REG) &= RXOFFTXOFF;
+                pcmMap[PCM_FIFO_REG] = data;
+                pcmMap[PCM_CTRL_REG] &= RXOFFTXON;
+                pcmMap[PCM_CTRL_REG] &= RXOFFTXOFF;
             }
             break;
         }
