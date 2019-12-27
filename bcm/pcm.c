@@ -9,7 +9,7 @@ static int syncWait;
 
 // TODO
 static bool checkFrameAndChannelWidth(char frameLength, char dataWidth, char ch1Pos) {
-    return 0;
+    return 1;
 }
 
 static bool checkInitParams(char mode, bool clockMode, char numChannels, char frameLength, char dataWidth, char ch1Pos, unsigned char thresh) {
@@ -19,6 +19,7 @@ static bool checkInitParams(char mode, bool clockMode, char numChannels, char fr
         error = 1;
     }
     if (!clockMode && !checkFrameAndChannelWidth(frameLength, dataWidth, ch1Pos)) {
+        DEBUG_VAL("clock mode in checkInitParams", clockMode);
         printf("ERROR: incompatible frame lengths and data widths.\n");
         error = 1;
     }
@@ -131,6 +132,7 @@ void initPCM(char mode, bool clockMode, bool fallingEdgeInput, char numChannels,
         printf("ERROR: PCM interface is currently running.\nAborting...\n");
         return;
     }
+    DEBUG_VAL("clock mode before checkInitParams", clockMode);
     if (!checkInitParams(mode, clockMode, numChannels, frameLength, dataWidth, ch1Pos, thresh)) {
         printf("Aborting...\n");
         return;
@@ -163,7 +165,7 @@ void initPCM(char mode, bool clockMode, bool fallingEdgeInput, char numChannels,
             break;
         }
     }
-    DEBUG_REG("Control reg", pcmMap[PCM_CTRL_REG]);
+    DEBUG_REG("PCM control reg", pcmMap[PCM_CTRL_REG]);
     pcmMode = mode;
     pcmInitialized = 1;
     printf("done.\n");

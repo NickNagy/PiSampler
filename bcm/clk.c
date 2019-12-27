@@ -77,7 +77,9 @@ int initClock(char clockNum, unsigned frequency, bool mash, char clockSource) {
         printf("Not a valid clock selection.\n");
         return 1;
     }
-    char sourceFrequency = getSourceFrequency(clockSource);
+    DEBUG_VAL("clock source", clockSource);
+    int sourceFrequency = getSourceFrequency(clockSource);
+    DEBUG_VAL("source frequency", sourceFrequency);
     if (!sourceFrequency) {
         printf("Not a valid source.\n");
         return 1;
