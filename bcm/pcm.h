@@ -20,6 +20,10 @@
 #define TXCLR (1 << 3)
 #define RXCLR (1 << 4)
 
+#define RXONTXOFF  0xFFFFFFFB
+#define RXOFFTXON  0xFFFFFFFD
+#define RXOFFTXOFF 0xFFFFFFF9
+
 static void checkFrameAndChannelWidth(char frameLength, char dataWidth);
 
 static int getSyncDelay();
