@@ -32,13 +32,13 @@ void initPMOD(bool mode, char pcmMode, char thresh) {//char dataWidth) {
     switch(mode) {
         case 0: {
             // frame length irrelevant for master mode
-            initPCM(pcmMode, 1, 0, PMOD_CHANNELS, 0, dataWidth, thresh);
+            initPCM(pcmMode, 1, 0, PMOD_CHANNELS, 0, dataWidth, 1, thresh);
         }
         default: {
             // need to set PCM clk and PCM_FS clk on Pi...
             // also need to figure out a formula for frameSyncLength and dataWidth...
             determineDataWidth();
-            initPCM(pcmMode, 0, 0, PMOD_CHANNELS, determineFrameLength(), dataWidth, thresh);
+            initPCM(pcmMode, 0, 0, PMOD_CHANNELS, determineFrameLength(), dataWidth, 1, thresh);
         }
     }
 }

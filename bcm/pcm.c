@@ -8,17 +8,17 @@ static char pcmMode;
 static int syncWait;
 
 // TODO
-static bool checkFrameAndChannelWidth(char frameLength, char dataWidth) {
+static bool checkFrameAndChannelWidth(char frameLength, char dataWidth, char ch1Pos) {
     return 0;
 }
 
-static bool checkInitParams(char mode, bool clockMode, char numChannels, char frameLength, char dataWidth, unsigned char thresh) {
+static bool checkInitParams(char mode, bool clockMode, char numChannels, char frameLength, char dataWidth, char ch1Pos, unsigned char thresh) {
     bool error = 0;
     if (mode < 0 || mode > 2) {
         printf("ERROR: please select from the following for MODE:\n\t0: polling mode\n\t1: interrupt mode\n\t\2: DMA mode\n");
         error = 1;
     }
-    if (!clockMode && !checkFrameAndChannelWidth(frameLength, dataWidth)) {
+    if (!clockMode && !checkFrameAndChannelWidth(frameLength, dataWidth, ch1Pos)) {
         printf("ERROR: incompatible frame lengths and data widths.\n");
         error = 1;
     }
@@ -68,25 +68,32 @@ static int getSyncDelay() {
     return usElapsed + (10 - (usElapsed % 10));
 }
 
-static void initRXTXControlRegisters(bool clockMode, char numChannels, char dataWidth) {
-    char widthBits, widthExtension;
+static void initRXTXControlRegisters(bool clockMode, char numChannels, char dataWidth, char ch1Pos) {
+    char widthBits, widthExtension, ch2Enable;
     unsigned short channel1Bits, channel2Bits;   
     int txrxInitBits;
-    /*
-    if PMOD is in master mode then only SSM is supported, which means if we have 2 channels
-    we want 16b data and packed mode set
-    */
-    if (clockMode && numChannels==2) {
-        if (dataWidth > 16) {
-            printf("\nTruncating channel width to 16 bits...\n");
-            dataWidth = 16;
-        }
-        pcmMap[PCM_MODE_REG] |= 3 << 24; // set FRXP & FTXP if not already set
+    ch2Enable = 0;
+    if (numChannels==2) {
+        ch2Enable = 1;
+        /*
+        if PMOD is in master mode then only SSM is supported, which means if we have 2 channels
+        we want 16b data and packed mode set
+        */
+        if (clockMode) {
+            if (dataWidth > 16) {
+                printf("\nTruncating channel width to 16 bits...\n");
+                dataWidth = 16;
+            }
+            pcmMap[PCM_MODE_REG] |= 3 << 24; // set FRXP & FTXP if not already set
+        }    
     }
     widthBits = (dataWidth > 24) ? dataWidth - 24: dataWidth - 8;
     widthExtension = (dataWidth > 24) ? 1: 0;
-    channel1Bits = (widthExtension << 15) | (1 << 4) | widthBits; // start @ clk 1 of frame
+    channel1Bits = (widthExtension << 15) | (ch1Pos << 4) | widthBits; // start @ clk 1 of frame
     channel2Bits = channel1Bits | (32 << 4); // start 32 bits after ch1 (assuming SCLK/LRCLK == 64)
+    //enable channels
+    channel1Bits |= (1 << 14);
+    channel2Bits |= (ch2Enable << 14);
     txrxInitBits = (channel1Bits << 16) | channel2Bits;
     pcmMap[PCM_RXC_REG] = txrxInitBits;
     pcmMap[PCM_TXC_REG] = txrxInitBits;
@@ -112,19 +119,21 @@ thresh:
     ...
     11 = set when FIFO is full
 */
-void initPCM(char mode, bool clockMode, bool fallingEdgeInput, char numChannels, char frameLength, char dataWidth, unsigned char thresh) {
-    if (!pcmMap)
-        pcmMap = initMemMap(PCM_BASE_OFFSET, PCM_BASE_MAPSIZE);
+void initPCM(char mode, bool clockMode, bool fallingEdgeInput, char numChannels, char frameLength, char dataWidth, char ch1Pos, unsigned char thresh) {
+    if (!pcmMap) {
+        if(!(pcmMap = initMemMap(PCM_BASE_OFFSET, PCM_BASE_MAPSIZE))
+            return;
+    }
     if (pcmRunning) {
         printf("ERROR: PCM interface is currently running.\nAborting...\n");
         return;
     }
-    if (!checkInitParams(mode, clockMode, numChannels, frameLength, dataWidth, thresh)) {
+    if (!checkInitParams(mode, clockMode, numChannels, frameLength, dataWidth, ch1Pos, thresh)) {
         printf("Aborting...\n");
         return;
     }
     printf("Initializing PCM interface...");
-    pcmMap[PCM_CTRL_REG] |= 1; // enable set
+    pcmMap[PCM_CTRL_REG] &= CLEAR_CTRL_BITS | 1; // clear register and set enable bit
     // CLKM == FSM
     pcmMap[PCM_MODE_REG] = ((clockMode << 23) | (fallingEdgeInput << 22) | (clockMode << 21) | (frameLength << 10) | frameLength);
     initRXTXControlRegisters(clockMode, numChannels, dataWidth);

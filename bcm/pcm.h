@@ -21,6 +21,9 @@
 #define TXCLR 8
 #define RXCLR 16
 
+// bitwise-AND with registers --> avoids changing RO bits
+#define CLEAR_CTRL_BITS 0x7E6000
+
 // bitwise-OR with CTRL register
 #define RXONTXON 6
 // bitwise-AND with CTRL register
@@ -28,15 +31,15 @@
 #define RXOFFTXON  0xFFFFFFFD//4
 #define RXONTXOFF  0xFFFFFFFB//2
 
-static bool checkFrameAndChannelWidth(char frameLength, char dataWidth);
+static bool checkFrameAndChannelWidth(char frameLength, char dataWidth, char ch1Pos);
 
 static bool checkInitParams(char mode, bool clockMode, char numChannels, char frameLength, char dataWidth, unsigned char thresh);
 
 static int getSyncDelay();
 
-static void initRXTXControlRegisters(bool clockMode, char numChannels, char dataWidth);
+static void initRXTXControlRegisters(bool clockMode, char numChannels, char dataWidth, char ch1Pos);
 
-void initPCM(char mode, bool clockMode, bool fallingEdgeInput, char numChannels, char frameLength, char dataWidth, unsigned char thresh);
+void initPCM(char mode, bool clockMode, bool fallingEdgeInput, char numChannels, char frameLength, char dataWidth, char ch1Pos, unsigned char thresh);
 
 void startPCM();
 
