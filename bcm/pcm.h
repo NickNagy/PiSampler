@@ -2,6 +2,7 @@
 #define PCM_H
 
 #include "pimem.h"
+#include "gpio.h"
 #include "../globals.h"
 #include <sys/time.h>
 
@@ -33,7 +34,7 @@
 
 static bool checkFrameAndChannelWidth(char frameLength, char dataWidth, char ch1Pos);
 
-static bool checkInitParams(char mode, bool clockMode, char numChannels, char frameLength, char dataWidth, unsigned char thresh);
+static bool checkInitParams(char mode, bool clockMode, char numChannels, char frameLength, char dataWidth, char ch1Pos, unsigned char thresh);
 
 static int getSyncDelay();
 

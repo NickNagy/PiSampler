@@ -121,8 +121,11 @@ thresh:
 */
 void initPCM(char mode, bool clockMode, bool fallingEdgeInput, char numChannels, char frameLength, char dataWidth, char ch1Pos, unsigned char thresh) {
     if (!pcmMap) {
-        if(!(pcmMap = initMemMap(PCM_BASE_OFFSET, PCM_BASE_MAPSIZE))
+        if(!(pcmMap = initMemMap(PCM_BASE_OFFSET, PCM_BASE_MAPSIZE)))
             return;
+        // set all PCM GPIO regs to their ALT0 func
+        for (int i = 18; i <= 21; i++)
+            setPinMode(i, 4);
     }
     if (pcmRunning) {
         printf("ERROR: PCM interface is currently running.\nAborting...\n");
@@ -136,7 +139,7 @@ void initPCM(char mode, bool clockMode, bool fallingEdgeInput, char numChannels,
     pcmMap[PCM_CTRL_REG] &= CLEAR_CTRL_BITS | 1; // clear register and set enable bit
     // CLKM == FSM
     pcmMap[PCM_MODE_REG] = ((clockMode << 23) | (fallingEdgeInput << 22) | (clockMode << 21) | (frameLength << 10) | frameLength);
-    initRXTXControlRegisters(clockMode, numChannels, dataWidth);
+    initRXTXControlRegisters(clockMode, numChannels, dataWidth, ch1Pos);
     // assert RXCLR & TXCLR, wait 2 PCM clk cycles
     pcmMap[PCM_CTRL_REG] |= TXCLR | RXCLR;    
     syncWait = getSyncDelay();
