@@ -2,11 +2,23 @@
 #include "bcm/pimem.h"
 #include "bcm/gpio.h"
 #include "bcm/clk.h"
-#include "pmod.h"
+#include "bcm/pcm.h"// "pmod.h"
 #include "globals.h"
 
-int main() {
+#define POLL_MODE      0
+#define INTERRUPT_MODE 1
+#define DMA_MODE	   2
+
+int main(int agrc, char ** argv) {
 	initGPIO();
-	initPMOD(0, 0, 0);
+	pcmExternInterface pmodMaster;
+	pmodMaster.isMasterDevice = 1;
+	pmodMaster.numChannels = 2;
+	pmodMaster.ch1Pos = 1;
+	pmodMaster.inputOnFallingEdge = 1;
+	pmodMaster.dataWidth = 16;
+	initClock(0, 11289600, 1, PLLD);
+	startClock(0);
+	initPCM(&pmodMaster, 0, POLL_MODE);
 	return 0;
 }

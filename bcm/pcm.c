@@ -8,29 +8,28 @@ static char pcmMode;
 static int syncWait;
 
 // TODO
-static bool checkFrameAndChannelWidth(char frameLength, char dataWidth, char ch1Pos) {
+static bool checkFrameAndChannelWidth(pcmExternInterface * ext) {
     return 0;
 }
 
-static bool checkInitParams(char mode, bool clockMode, char numChannels, char frameLength, char dataWidth, char ch1Pos, unsigned char thresh) {
+static bool checkInitParams(pcmExternInterface * ext, unsigned char thresh, char mode) {
     bool error = 0;
     if (mode < 0 || mode > 2) {
         printf("ERROR: please select from the following for MODE:\n\t0: polling mode\n\t1: interrupt mode\n\t\2: DMA mode\n");
         error = 1;
     }
-    if (!clockMode && !checkFrameAndChannelWidth(frameLength, dataWidth, ch1Pos)) {
-        DEBUG_VAL("clock mode in checkInitParams", clockMode);
+    if (!ext->isMasterDevice && !checkFrameAndChannelWidth(ext)) {
         printf("ERROR: incompatible frame lengths and data widths.\n");
         error = 1;
     }
-    if (numChannels < 1 || numChannels > 2) {
+    if (ext->numChannels < 1 || ext->numChannels > 2) {
         printf("ERROR: valid number of channels are 1 or 2.\n");
         error = 1;
     }
-    if (dataWidth > 32) {
+    if (ext->dataWidth > 32) {
         printf("ERROR: maximum data width available is 32 bits.\n");
         error = 1;
-    } else if (dataWidth % 8) {
+    } else if (ext->dataWidth % 8) {
         printf("ERROR: please set data width to be a multiple of 8 bits.\n");
         error = 1;
     }
@@ -69,28 +68,28 @@ static int getSyncDelay() {
     return usElapsed + (10 - (usElapsed % 10));
 }
 
-static void initRXTXControlRegisters(bool clockMode, char numChannels, char dataWidth, char ch1Pos) {
+static void initRXTXControlRegisters(pcmExternInterface * ext) {
     char widthBits, widthExtension, ch2Enable;
     unsigned short channel1Bits, channel2Bits;   
     int txrxInitBits;
     ch2Enable = 0;
-    if (numChannels==2) {
+    if (ext->numChannels==2) {
         ch2Enable = 1;
         /*
         if PMOD is in master mode then only SSM is supported, which means if we have 2 channels
         we want 16b data and packed mode set
         */
-        if (clockMode) {
-            if (dataWidth > 16) {
+        if (ext->isMasterDevice) {
+            if (ext->dataWidth > 16) {
                 printf("\nTruncating channel width to 16 bits...\n");
-                dataWidth = 16;
+                ext->dataWidth = 16;
             }
             pcmMap[PCM_MODE_REG] |= 3 << 24; // set FRXP & FTXP if not already set
         }    
     }
-    widthBits = (dataWidth > 24) ? dataWidth - 24: dataWidth - 8;
-    widthExtension = (dataWidth > 24) ? 1: 0;
-    channel1Bits = (widthExtension << 15) | (ch1Pos << 4) | widthBits; // start @ clk 1 of frame
+    widthBits = (ext->dataWidth > 24) ? ext->dataWidth - 24: ext->dataWidth - 8;
+    widthExtension = (ext->dataWidth > 24) ? 1: 0;
+    channel1Bits = (widthExtension << 15) | (ext->ch1Pos << 4) | widthBits; // start @ clk 1 of frame
     channel2Bits = channel1Bits | (32 << 4); // start 32 bits after ch1 (assuming SCLK/LRCLK == 64)
     //enable channels
     channel1Bits |= (1 << 14);
@@ -120,7 +119,7 @@ thresh:
     ...
     11 = set when FIFO is full
 */
-void initPCM(char mode, bool clockMode, bool fallingEdgeInput, char numChannels, char frameLength, char dataWidth, char ch1Pos, unsigned char thresh) {
+void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode) {
     if (!pcmMap) {
         if(!(pcmMap = initMemMap(PCM_BASE_OFFSET, PCM_BASE_MAPSIZE)))
             return;
@@ -132,16 +131,15 @@ void initPCM(char mode, bool clockMode, bool fallingEdgeInput, char numChannels,
         printf("ERROR: PCM interface is currently running.\nAborting...\n");
         return;
     }
-    DEBUG_VAL("clock mode before checkInitParams", clockMode);
-    if (!checkInitParams(mode, clockMode, numChannels, frameLength, dataWidth, ch1Pos, thresh)) {
+    if (!checkInitParams(ext, thresh, mode)) {
         printf("Aborting...\n");
         return;
     }
     printf("Initializing PCM interface...");
     pcmMap[PCM_CTRL_REG] &= CLEAR_CTRL_BITS | 1; // clear register and set enable bit
     // CLKM == FSM
-    pcmMap[PCM_MODE_REG] = ((clockMode << 23) | (fallingEdgeInput << 22) | (clockMode << 21) | (frameLength << 10) | frameLength);
-    initRXTXControlRegisters(clockMode, numChannels, dataWidth, ch1Pos);
+    pcmMap[PCM_MODE_REG] = ((ext->isMasterDevice << 23) | (!ext->inputOnFallingEdge << 22) | (ext->isMasterDevice << 21) | (ext->frameLength << 10) | ext->frameLength);
+    initRXTXControlRegisters(ext);
     // assert RXCLR & TXCLR, wait 2 PCM clk cycles
     pcmMap[PCM_CTRL_REG] |= TXCLR | RXCLR;    
     syncWait = getSyncDelay();

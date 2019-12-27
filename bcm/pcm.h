@@ -32,15 +32,24 @@
 #define RXOFFTXON  0xFFFFFFFD//4
 #define RXONTXOFF  0xFFFFFFFB//2
 
-static bool checkFrameAndChannelWidth(char frameLength, char dataWidth, char ch1Pos);
+typedef struct pcmExternInterface {
+    char ch1Pos;
+    char dataWidth;
+    char frameLength;
+    char numChannels;
+    bool inputOnFallingEdge;
+    bool isMasterDevice;
+} pcmExternInterface;
 
-static bool checkInitParams(char mode, bool clockMode, char numChannels, char frameLength, char dataWidth, char ch1Pos, unsigned char thresh);
+static bool checkFrameAndChannelWidth(pcmExternInterface * ext);
+
+static bool checkInitParams(pcmExternInterface * ext, unsigned char thresh, char mode);
 
 static int getSyncDelay();
 
-static void initRXTXControlRegisters(bool clockMode, char numChannels, char dataWidth, char ch1Pos);
+static void initRXTXControlRegisters(pcmExternInterface * ext);
 
-void initPCM(char mode, bool clockMode, bool fallingEdgeInput, char numChannels, char frameLength, char dataWidth, char ch1Pos, unsigned char thresh);
+void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode);
 
 void startPCM();
 
