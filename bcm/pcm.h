@@ -33,6 +33,10 @@
 #define RXOFFTXON  0xFFFFFFFD//4
 #define RXONTXOFF  0xFFFFFFFB//2
 
+#define POLL_MODE      0
+#define INTERRUPT_MODE 1
+#define DMA_MODE       2 
+
 typedef struct pcmExternInterface {
     char ch1Pos;
     char dataWidth;

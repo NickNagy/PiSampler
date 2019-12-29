@@ -158,13 +158,13 @@ void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode, bool pac
     pcmMap[PCM_CTRL_REG] |= TXCLR | RXCLR;    
     syncWait = getSyncDelay();
     switch(mode) {
-        case 1: // interrupt
+        case INTERRUPT_MODE:
         {
             pcmMap[PCM_CTRL_REG] |= (thresh << 7) | (thresh << 5);
             pcmMap[PCM_INTEN_REG] |= 3; // enable interrupts
             break;
         }
-        case 2: // DMA // TODO
+        case DMA_MODE:
         {
             if (!dmaMap)
                 dmaMap = initDMAMap(1);
@@ -223,10 +223,10 @@ void startPCM() {
     // NOTE: transmit FIFO should be pre-loaded with data
     //pcmMap(PCM_CTRL_REG) |= 6; // set TXON and RXON
     switch(pcmMode) {
-        case 1: { // interrupt
+        case INTERRUPT_MODE: { 
             break;
         }
-        case 2: { // DMA
+        case DMA_MODE: { 
             // start the DMA (which should fill the TX FIFO)
             dmaMap[DMA_CS_REG(0)] |= 1;
             // set TXON and/or RXON to begin operation

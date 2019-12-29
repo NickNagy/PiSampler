@@ -12,6 +12,7 @@
 int main(int agrc, char ** argv) {
 	initGPIO();
 	pcmExternInterface pmodMaster;
+	DMAControlBlock cb;
 	pmodMaster.isMasterDevice = 1;
 	pmodMaster.numChannels = 2;
 	pmodMaster.ch1Pos = 1;
@@ -19,7 +20,7 @@ int main(int agrc, char ** argv) {
 	pmodMaster.dataWidth = 16;
 	initClock(0, 11289600, 1, PLLD);
 	startClock(0);
-	initPCM(&pmodMaster, 0, POLL_MODE);
+	initPCM(&pmodMaster, 1, DMA_MODE, 1, &cb);
 	startPCM();
 	return 0;
 }
