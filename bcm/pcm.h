@@ -3,6 +3,7 @@
 
 #include "pimem.h"
 #include "gpio.h"
+#include "dma.h"
 #include "../globals.h"
 #include <sys/time.h>
 
@@ -43,13 +44,13 @@ typedef struct pcmExternInterface {
 
 static bool checkFrameAndChannelWidth(pcmExternInterface * ext);
 
-static bool checkInitParams(pcmExternInterface * ext, unsigned char thresh, char mode);
+static bool checkInitParams(pcmExternInterface * ext, unsigned char thresh, char mode, DMAControlBlock * cb);
 
 static int getSyncDelay();
 
 static void initRXTXControlRegisters(pcmExternInterface * ext);
 
-void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode);
+void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode, DMAControlBlock * cb);
 
 void startPCM();
 

@@ -12,5 +12,6 @@
 
 unsigned * initMemMap(unsigned offset, unsigned size);
 void clearMemMap(unsigned * map, unsigned size);
+int getPhysAddrBase();
 
 #endif

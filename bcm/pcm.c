@@ -1,6 +1,7 @@
 #include "pcm.h"
 
 static unsigned * pcmMap; 
+static unsigned * dmaMap;
 static bool pcmInitialized;
 static bool pcmRunning;
 
@@ -12,7 +13,12 @@ static bool checkFrameAndChannelWidth(pcmExternInterface * ext) {
     return 0;
 }
 
-static bool checkInitParams(pcmExternInterface * ext, unsigned char thresh, char mode) {
+// TODO
+static bool checkDMAControlBlock(DMAControlBlock * cb) {
+    return 0;
+}
+
+static bool checkInitParams(pcmExternInterface * ext, unsigned char thresh, char mode, DMAControlBlock * cb) {
     bool error = 0;
     if (mode < 0 || mode > 2) {
         printf("ERROR: please select from the following for MODE:\n\t0: polling mode\n\t1: interrupt mode\n\t\2: DMA mode\n");
@@ -37,9 +43,14 @@ static bool checkInitParams(pcmExternInterface * ext, unsigned char thresh, char
         printf("ERROR: threshold must be two-bit value for poll or interrupt mode.\n");
         error = 1;
     } 
-    if (mode == 2 && thresh >= 128) {
-        printf("ERROR: threshold must be six-bit value for DMA mode.\n");
-        error = 1;
+    if (mode == 2) {
+        if (thresh >= 128) {
+            printf("ERROR: threshold must be six-bit value for DMA mode.\n");
+            error = 1;
+        }
+        if (checkDMAControlBlock(cb)) {
+            error = 1;
+        }
     }
     return !error;
 }
@@ -101,11 +112,22 @@ static void initRXTXControlRegisters(pcmExternInterface * ext) {
 }
 
 /*
-mode = 0 --> polled mode
-mode = 1 --> interrupt mode
-mode = 2 --> DMA mode
+
+ext: pointer to a struct that defines the settings of the off-board device for PCM and how our code should interact with it
+
+thresh: threshold for TX and RX registers. Interpretation depends on mode
+    for poll mode:
+    for interrupt mode:
+    for DMA mode:
+
+mode:
+    0 --> polled mode
+    1 --> interrupt mode
+    2 --> DMA mode
+
+cb: pointer to control block for DMA mode. This input is ignored for polled and interrupt mode
 */
-void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode) {
+void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode, DMAControlBlock * cb) {
     if (!pcmMap) {
         if(!(pcmMap = initMemMap(PCM_BASE_OFFSET, PCM_BASE_MAPSIZE)))
             return;
@@ -117,7 +139,7 @@ void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode) {
         printf("ERROR: PCM interface is currently running.\nAborting...\n");
         return;
     }
-    if (!checkInitParams(ext, thresh, mode)) {
+    if (!checkInitParams(ext, thresh, mode, cb)) {
         printf("Aborting...\n");
         return;
     }
@@ -139,9 +161,22 @@ void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode) {
         }
         case 2: // DMA // TODO
         {
+            if (!dmaMap) {
+                dmaMap = initMemMap(DMA_BASE_OFFSET, DMA_BASE_MAPSIZE);
+            }
+            int bcm_base = getPhysAddrBase();
+            int fifoPhysAddr = bcm_base + PCM_BASE_OFFSET + (PCM_FIFO_REG<<4);
+            cb -> srcAddr = fifoPhysAddr;
+            cb -> destAddr = cb-> srcAddr;
+            cb -> nextControlBlockAddr = cb;
+            // TODO: verify transfer length line
+            cb -> transferLength = ext->dataWidth;
+            // set DMA transfers to pace with DREQ signals from PCM_DREQ_REG
+            // TODO: verify this is correct interpretation??
+            cb -> transferInfo |= SRC_DREQ(1) | DEST_DREQ(1);
+            dmaMap[DMA_CONBLK_AD_REG(0)] = CB;
             pcmMap[PCM_CTRL_REG] |= (1 << 9); // DMAEN
             pcmMap[PCM_DREQ_REG] |= (thresh << 8) | thresh;
-            // TODO: dma.h
             break;
         }
         default: // polling
@@ -191,12 +226,7 @@ void startPCM() {
         }
         default: { // polling
             while(1) {
-                // wait for enough data in RX to be receivable
-                while(!(pcmMap[PCM_INTSTC_REG] & 2));
-                pcmMap[PCM_CTRL_REG] &= RXOFFTXON;
-                // wait for enough data in TX to be transmitted
-                while(!(pcmMap[PCM_INTSTC_REG] & 1));
-                pcmMap[PCM_CTRL_REG] &= RXONTXOFF;
+               
             }
             break;
         }
