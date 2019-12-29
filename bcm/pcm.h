@@ -26,11 +26,16 @@
 #define CLEAR_CTRL_BITS 0x7E6000
 
 // bitwise-OR with CTRL register
+#define RXON     2
+#define TXON     4
 #define RXONTXON 6
 // bitwise-AND with CTRL register
 #define RXOFFTXOFF 0xFFFFFFF9
-#define RXOFFTXON  0xFFFFFFFD//4
-#define RXONTXOFF  0xFFFFFFFB//2
+#define RXOFF      0xFFFFFFFD
+#define TXOFF      0xFFFFFFFB
+
+#define RXFULL  pcmMap[PCM_CTRL_REG] & 0x40000
+#define TXEMPTY pcmMap[PCM_CTRL_REG] & 0x20000
 
 typedef struct pcmExternInterface {
     char ch1Pos;
@@ -50,6 +55,10 @@ static int getSyncDelay();
 static void initRXTXControlRegisters(pcmExternInterface * ext);
 
 void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode);
+
+void RXTest();
+
+void TXTest();
 
 void startPCM();
 

@@ -110,8 +110,10 @@ void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode) {
         if(!(pcmMap = initMemMap(PCM_BASE_OFFSET, PCM_BASE_MAPSIZE)))
             return;
         // set all PCM GPIO regs to their ALT0 func
-        for (int i = 18; i <= 21; i++)
+        for (int i = 18; i <= 21; i++) {
             setPinMode(i, 4);
+            if (DEBUG) printf("pin %d set to ALT0\n", i);
+        }
     }
     if (pcmRunning) {
         printf("ERROR: PCM interface is currently running.\nAborting...\n");
@@ -123,9 +125,9 @@ void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode) {
     }
     printf("Initializing PCM interface...");
     pcmMap[PCM_CTRL_REG] = (pcmMap[PCM_CTRL_REG] & CLEAR_CTRL_BITS) + 1; // clear register and set enable bit
+    DEBUG_REG("Control reg right after enable set", pcmMap[PCM_CTRL_REG]);
     // CLKM == FSM
     pcmMap[PCM_MODE_REG] = ((ext->isMasterDevice << 23) | (!ext->inputOnFallingEdge << 22) | (ext->isMasterDevice << 21) | (ext->frameLength << 10) | ext->frameLength);
-    DEBUG_REG("Mode reg", pcmMap[PCM_MODE_REG]);
     initRXTXControlRegisters(ext);
     // assert RXCLR & TXCLR, wait 2 PCM clk cycles
     pcmMap[PCM_CTRL_REG] |= TXCLR | RXCLR;    
@@ -150,10 +152,38 @@ void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode) {
             break;
         }
     }
-    DEBUG_REG("PCM control reg", pcmMap[PCM_CTRL_REG]);
+    DEBUG_REG("Mode reg at end of init", pcmMap[PCM_MODE_REG]);
+    DEBUG_REG("Control reg at end of init", pcmMap[PCM_CTRL_REG]);
     pcmMode = mode;
     pcmInitialized = 1;
     printf("done.\n");
+}
+
+void RXTest() {
+    if (!pcmInitialized) {
+        printf("ERROR: PCM interface has not been initialized yet.\n");
+        return;
+    }
+    pcmMap[PCM_CTRL_REG] &= TXOFF;
+    pcmMap[PCM_CTRL_REG] |= RXON; 
+    while(1) {
+        printf("%d\n", pcmMap[PCM_FIFO_REG]);
+    }
+}
+
+void TXTest() {
+    if (!pcmInitialized) {
+        printf("ERROR: PCM interface has not been initialized yet.\n");
+        return;
+    }
+    int data = 0x55555555;
+    pcmMap[PCM_FIFO_REG] = data;
+    pcmMap[PCM_CTRL_REG] &= RXOFF;
+    pcmMap[PCM_CTRL_REG] |= TXON;
+    while (1) {
+        while(!TXEMPTY);
+        pcmMap[PCM_FIFO_REG] = data;
+    }
 }
 
 /* 
@@ -177,11 +207,11 @@ void startPCM() {
         return;
     }
     int data;
+    char rxtxOn;
     pcmRunning = 1;
-    // NOTE: transmit FIFO should be pre-loaded with data
-    pcmMap[PCM_FIFO_REG] = 0;
-    //pcmMap(PCM_CTRL_REG) |= 6; // set TXON and RXON
-    pcmMap[PCM_CTRL_REG] &= RXONTXOFF;
+    rxtxOn = 3;
+    pcmMap[PCM_CTRL_REG] &= TXOFF;
+    pcmMap[PCM_CTRL_REG] |= RXON;
     switch(pcmMode) {
         case 1: { // interrupt
             break;
@@ -191,12 +221,48 @@ void startPCM() {
         }
         default: { // polling
             while(1) {
-                // wait for enough data in RX to be receivable
-                while(!(pcmMap[PCM_INTSTC_REG] & 2));
-                pcmMap[PCM_CTRL_REG] &= RXOFFTXON;
-                // wait for enough data in TX to be transmitted
-                while(!(pcmMap[PCM_INTSTC_REG] & 1));
-                pcmMap[PCM_CTRL_REG] &= RXONTXOFF;
+                while(!RXFULL);
+                if (DEBUG) printf("receiving...\n");
+                data = pcmMap[PCM_FIFO_REG];
+                pcmMap[PCM_CTRL_REG] &= RXOFF;
+                pcmMap[PCM_CTRL_REG] |= TXON;
+                while(!TXEMPTY);
+                if (DEBUG) printf("transmitting...\n");
+                pcmMap[PCM_FIFO_REG] = data;
+                pcmMap[PCM_CTRL_REG] &= TXOFF;
+                pcmMap[PCM_CTRL_REG] |= RXON;               
+                /*if (RXFULL & TXEMPTY) {
+                    pcmMap[PCM_CTRL_REG] = pcmMap[PCM_CTRL_REG] & RXOFF | TXON;
+                    pcmMap[PCM_FIFO_REG] = data;
+                } else if (RXFULL) {
+                    pcmMap[PCM_CTRL_REG] &= RXOFF;
+                } else if (TXEMPTY) {
+                    pcmMap[PCM_CTRL_REG] |= TXON;
+                } else {
+                    pcmMap[PCM_CTRL_REG] |= pcmMap[PCM_CTRL_REG] & TXOFF | RXON;
+                    data = pcmMap[PCM_FIFO_REG];
+                }*/    
+                /*switch(rxtxOn) {
+                    case 1: { // rx off, tx on
+                        if (RXFULL & TXEMPTY) {
+                            
+                        } else if (RXFULL) {
+                        
+                        } else if (TXEMPTY) {
+                        
+                        }
+                        break;
+                    }
+                    case 2: { // rx on, tx off
+                        break;
+                    }
+                    case 3: { // both on
+                        break;
+                    }
+                    default: { // both off
+                        break;
+                    }
+                }*/
             }
             break;
         }
