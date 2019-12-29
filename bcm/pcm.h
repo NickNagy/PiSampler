@@ -3,6 +3,7 @@
 
 #include "pimem.h"
 #include "gpio.h"
+#include "dma.h"
 #include "../globals.h"
 #include <sys/time.h>
 
@@ -37,6 +38,10 @@
 #define RXFULL  pcmMap[PCM_CTRL_REG] & 0x40000
 #define TXEMPTY pcmMap[PCM_CTRL_REG] & 0x20000
 
+#define POLL_MODE      0
+#define INTERRUPT_MODE 1
+#define DMA_MODE       2 
+
 typedef struct pcmExternInterface {
     char ch1Pos;
     char dataWidth;
@@ -48,13 +53,13 @@ typedef struct pcmExternInterface {
 
 static bool checkFrameAndChannelWidth(pcmExternInterface * ext);
 
-static bool checkInitParams(pcmExternInterface * ext, unsigned char thresh, char mode);
+static bool checkInitParams(pcmExternInterface * ext, unsigned char thresh, char mode, DMAControlBlock * cb);
 
 static int getSyncDelay();
 
-static void initRXTXControlRegisters(pcmExternInterface * ext);
+static void initRXTXControlRegisters(pcmExternInterface * ext, bool packedMode);
 
-void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode);
+void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode, bool packedMode, DMAControlBlock * cb);
 
 void RXTest();
 

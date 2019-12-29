@@ -23,3 +23,7 @@ unsigned * initMemMap(unsigned offset, unsigned size) {
 void clearMemMap(unsigned * map, unsigned size) {
     munmap((void*)map, size);
 }
+
+int getPhysAddrBase() {
+    return bcm_base;
+}

@@ -1,10 +1,12 @@
 #ifndef DMA_H
 #define DMA_H
 
+#include "pimem.h"
+
 // "DMA directly connected to peripherals. Must be set up to use physical hardware addresses of peripherals"
 
-#define DMA_BASE_OFFSET  0x7000
-#define DMA_BASE_MAPSIZE 0x80 // each channel register set is 0x100 bytes, and I only need 2 channels
+#define DMA_BASE_OFFSET  0x207000
+#define DMA_SINGLE_REG_MAPSIZE 0x40 
 
 #define DMA_CHANNEL(x) x*64
 
@@ -21,5 +23,88 @@
 // Control status register bits
 #define RESET 1<<31
 #define ABORT 1<<30
+
+/* More unadressed control status bits to handle...
+
+bool waitForOutstandingWrites: (x << 28)
+    0 = ?
+    1 = after DMA transfer, will wait until last outstanding write response has been receieved;
+        while waiting, will load next CB address, clear active flag
+        will defer setting INT or END flags until last outstanding write response received
+
+char priorityLevels: (x << 16)
+    top 4 bits = PANIC_PRIORITY: priority of AXI bus transactions
+                                 used when PANIC bit of peripheral address == 1
+    bottom 4 bits = PRIORITY:    priority of normal AXI bus transactions
+                                 used when PANIC bit of peripheral address == 0
+
+*/
+
+/* ****TRANSFER_INFO REGISTER****
+27 - 31: reserved
+26: NO_WIDE_BURSTS: manual suggests to set to 0
+21 - 25: WAITS: set the number of wait cycles after each read/write operation
+16 - 20: PERMAP:
+    0 = continuous, un-paced transfer
+    1 - 31 = peripheral # whose ready signal is used to control rate of transfers,
+             and whose panic signal(s) will be output on DMA AXI bus
+12 - 15: BURST_LENGTH: number of words in a "burst". 0 = single-word transfers
+11: SRC_IGNORE: 1 = don't perform src reads.
+10: SRC_DREQ: 
+    0 = DREQ has no effect
+    1 = DREQ selected by PERMAP will "gate" the src reads
+9: SRC_WIDTH:
+    0 = 32b source read width
+    1 = 128b source read width
+8: SRC_INC:
+    1:
+        (SRC_WIDTH == 0) will increment src address by 4 bytes
+        (SRC_WIDTH == 1) will increment src address by 32 bytes
+7: DEST_IGNORE
+6: DEST_DREQ
+5: DEST_WIDTH
+4: DEST_INC
+3: WAIT_RESP:
+    0 = don't wait for write response, continue as soon as data is sent
+    1 = wait for write response to be received before proceeding
+2: 0 (don't care)
+1: TDMODE:
+    0 = linear mode: interpret TXFR_LEN register as single transfer of length = {YLENGTH, XLENGTH}
+    1 = 2D mode: interpret TXFR_LEN register as YLENGTH # of XLENGTH-sized transfers. Add strides to addr after each transfer
+0: INTEN: 1 = generate an interrupt when transfer described by current CB completes
+*/
+#define SRC_IGNORE(x)  x<<11
+#define SRC_DREQ(x)    x<<10
+#define SRC_WIDTH(x)   x<<9
+#define SRC_INC(x)     x<<8
+#define DEST_IGNORE(x) x<<7
+#define DEST_DREQ(x)   x<<6
+#define DEST_WIDTH(x)  x<<5
+#define DEST_INC(x)    x<<4
+#define WAIT_RESP(x)   x<<3
+#define TD_MODE(x)     x<<1
+
+/* ***** CONTROL BLOCK ******
+transferLength: (in bytes)!
+    top 16 bits: yTransferLength: 
+        (in 2D mode) indicates how many xTransferLength transfers performed.
+        (in normal mode) becomes the top bits of xTransferLength
+    bottom 16 bits: xTransferLength
+
+srcStride: signed (2's comp) byte increment to apply to 
+    the source address at the end of each row in 2D mode
+*/
+typedef struct DMAControlBlock {
+    int transferInfo;
+    int srcAddr;
+    int destAddr;
+    int transferLength;
+    short srcStride;
+    short destStride;
+    int nextControlBlockAddr;
+    long reserved; 
+} DMAControlBlock;
+
+unsigned * initDMAMap(char numDMARegs);
 
 #endif
