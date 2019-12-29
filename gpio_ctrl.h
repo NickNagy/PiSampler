@@ -9,6 +9,7 @@ Setting GPIO clocks using BCM2835 ARM Peripherals Guide.
 #include <stdio.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <time.h>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <bcm_host.h>
@@ -56,6 +57,28 @@ Registers and relevant bit assignments for setting up GPCLK
 #define PLLC 5
 #define PLLD 6
 
+
+/*
+************************** PCM *****************************
+*/
+
+#define PCM_BASE_OFFSET 0x3000
+#define PCM_BASE (bcm_base + PCM_BASE_OFFSET)
+#define PCM_BASE_MAPSIZE 0x24
+
+#define PCM_CTRL_REG   0
+#define PCM_FIFO_REG   1
+#define PCM_MODE_REG   2
+#define PCM_RXC_REG    3
+#define PCM_TXC_REG    4
+#define PCM_DREQ_REG   5
+#define PCM_INTEN_REG  6
+#define PCM_INTSTC_REG 7
+#define PCM_GRAY_REG   8
+
+#define TXCLR (1 << 3)
+#define RXCLR (1 << 4)
+
 /*
 ********************** GPIO CONTROL ************************
 All other GPIO-relevant registers and bit assignments
@@ -69,27 +92,44 @@ All other GPIO-relevant registers and bit assignments
 #define GPIO_CLR_REG 10 // turns GPIO pins low
 #define GPIO_LEV_REG 13 // when in input mode, bit n reads GPIO pin n
 
-static int getSourceFrequency(char src);
 
-static bool clockIsBusy(int clock_ctrl_reg);
+// ************************* GPIO FUNCTIONS *********************************
 
 void setPinHigh(char n);
 
 void setPinLow(char n);
 
-int setDiv(unsigned freq, bool mash);
+void LEDTest(char pin, unsigned char numBlinks, unsigned delay_seconds);
+
+// ************************** CLOCK FUNCTIONS ********************************
+
+static int getSourceFrequency(char src);
+
+static bool clockIsBusy(int clock_ctrl_reg);
+
+static int setDiv(unsigned freq, bool mash);
 
 static bool isValidClockSelection(char clockNum);
 
 void disableClock(char clockNum);
 
-static int startClock(char clockNum);
+int startClock(char clockNum);
 
-static int initClock(char clockNum, unsigned frequency, bool mash);
+int initClock(char clockNum, unsigned frequency, bool mash);
 
 void disableAllClocks();
 
-void LEDTest(char pin, unsigned char numBlinks, unsigned delay_seconds);
+// ************************* PCM FUNCTIONS *****************************
+
+static void initPolledMode();
+
+static void initInterruptMode();
+
+static void initDMAMode();
+
+void initPCM();
+
+// ************************* MEMORY MAPPING ****************************
 
 static bool initMemMap();
 
