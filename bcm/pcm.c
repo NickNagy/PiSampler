@@ -15,7 +15,7 @@ static bool checkFrameAndChannelWidth(pcmExternInterface * ext) {
 
 // TODO
 static bool checkDMAControlBlock(DMAControlBlock * cb) {
-    return 0;
+    return 1;
 }
 
 static bool checkInitParams(pcmExternInterface * ext, unsigned char thresh, char mode, DMAControlBlock * cb) {
@@ -48,7 +48,7 @@ static bool checkInitParams(pcmExternInterface * ext, unsigned char thresh, char
             printf("ERROR: threshold must be six-bit value for DMA mode.\n");
             error = 1;
         }
-        if (checkDMAControlBlock(cb)) {
+        if (!checkDMAControlBlock(cb)) {
             error = 1;
         }
     }
@@ -79,23 +79,17 @@ static int getSyncDelay() {
     return usElapsed + (10 - (usElapsed % 10));
 }
 
-static void initRXTXControlRegisters(pcmExternInterface * ext) {
+static void initRXTXControlRegisters(pcmExternInterface * ext, bool packedMode) {
     char widthBits, widthExtension, ch2Enable;
     unsigned short channel1Bits, channel2Bits;   
     int txrxInitBits;
     ch2Enable = 0;
-    if (ext->numChannels==2) {
+    if (ext->numChannels==2) { 
         ch2Enable = 1;
-        /*
-        if PMOD is in master mode then only SSM is supported, which means if we have 2 channels
-        we want 16b data and packed mode set
-        */
-        if (ext->isMasterDevice) {
-            if (ext->dataWidth > 16) {
-                printf("\nTruncating channel width to 16 bits...\n");
-                ext->dataWidth = 16;
-            }
-            pcmMap[PCM_MODE_REG] |= 3 << 24; // set FRXP & FTXP if not already set
+        // truncate to 16b data if necessary
+        if (packedMode && ext->dataWidth > 16) {
+            printf("\nTruncating channel width to 16 bits...\n");
+            ext->dataWidth = 16;
         }    
     }
     widthBits = (ext->dataWidth > 24) ? ext->dataWidth - 24: ext->dataWidth - 8;
@@ -111,6 +105,8 @@ static void initRXTXControlRegisters(pcmExternInterface * ext) {
     DEBUG_REG("RX reg", pcmMap[PCM_RXC_REG]);
 }
 
+
+// TODO: add params to determine if packedMode
 /*
 
 ext: pointer to a struct that defines the settings of the off-board device for PCM and how our code should interact with it
@@ -119,15 +115,21 @@ thresh: threshold for TX and RX registers. Interpretation depends on mode
     for poll mode:
     for interrupt mode:
     for DMA mode:
+        value of TX & RX request level (in DREQ_A reg). When the FIFO data level is above this the PCM will assert its DMA DREQ
+        signal to request that some more data is read out of the FIFO
 
 mode:
     0 --> polled mode
     1 --> interrupt mode
     2 --> DMA mode
 
+packedMode: (for 2 channel data)
+    1: use packed mode, where each word to FIFO reg is two 16b signals together, 1 representing each channel
+
 cb: pointer to control block for DMA mode. This input is ignored for polled and interrupt mode
 */
-void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode, DMAControlBlock * cb) {
+void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode, bool packedMode, DMAControlBlock * cb) {
+    bool packedMode;
     if (!pcmMap) {
         if(!(pcmMap = initMemMap(PCM_BASE_OFFSET, PCM_BASE_MAPSIZE)))
             return;
@@ -143,12 +145,15 @@ void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode, DMAContr
         printf("Aborting...\n");
         return;
     }
+    this->packedMode = packedMode;
+    if (packedMode & ext->numChannels != 2)
+        this->packedMode = 0;
     printf("Initializing PCM interface...");
     pcmMap[PCM_CTRL_REG] = (pcmMap[PCM_CTRL_REG] & CLEAR_CTRL_BITS) + 1; // clear register and set enable bit
     // CLKM == FSM
-    pcmMap[PCM_MODE_REG] = ((ext->isMasterDevice << 23) | (!ext->inputOnFallingEdge << 22) | (ext->isMasterDevice << 21) | (ext->frameLength << 10) | ext->frameLength);
+    pcmMap[PCM_MODE_REG] = (3*packedMode << 24) | ((ext->isMasterDevice << 23) | (!ext->inputOnFallingEdge << 22) | (ext->isMasterDevice << 21) | (ext->frameLength << 10) | ext->frameLength);
     DEBUG_REG("Mode reg", pcmMap[PCM_MODE_REG]);
-    initRXTXControlRegisters(ext);
+    initRXTXControlRegisters(ext, this->packedMode);
     // assert RXCLR & TXCLR, wait 2 PCM clk cycles
     pcmMap[PCM_CTRL_REG] |= TXCLR | RXCLR;    
     syncWait = getSyncDelay();
@@ -161,20 +166,22 @@ void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode, DMAContr
         }
         case 2: // DMA // TODO
         {
-            if (!dmaMap) {
-                dmaMap = initMemMap(DMA_BASE_OFFSET, DMA_BASE_MAPSIZE);
-            }
+            if (!dmaMap)
+                dmaMap = initDMAMap(1);
             int bcm_base = getPhysAddrBase();
             int fifoPhysAddr = bcm_base + PCM_BASE_OFFSET + (PCM_FIFO_REG<<4);
             cb -> srcAddr = fifoPhysAddr;
             cb -> destAddr = cb-> srcAddr;
             cb -> nextControlBlockAddr = cb;
             // TODO: verify transfer length line
-            cb -> transferLength = ext->dataWidth;
+            // if using packed mode, then a single data transfer is 2-channel, therefore twice the data width
+            cb -> transferLength = this->packedMode ? (ext->dataWidth) >> 1 : (ext->dataWidth) >> 2; // represented in bytes
             // set DMA transfers to pace with DREQ signals from PCM_DREQ_REG
             // TODO: verify this is correct interpretation??
             cb -> transferInfo |= SRC_DREQ(1) | DEST_DREQ(1);
             dmaMap[DMA_CONBLK_AD_REG(0)] = CB;
+            // TODO: make this dynamic
+            pcmMap[PCM_DREQ_REG] = ((thresh + 1) << 24) | ((thresh + 1)<<16) | (thresh << 8) | thresh;
             pcmMap[PCM_CTRL_REG] |= (1 << 9); // DMAEN
             pcmMap[PCM_DREQ_REG] |= (thresh << 8) | thresh;
             break;
@@ -214,14 +221,16 @@ void startPCM() {
     int data;
     pcmRunning = 1;
     // NOTE: transmit FIFO should be pre-loaded with data
-    pcmMap[PCM_FIFO_REG] = 0;
     //pcmMap(PCM_CTRL_REG) |= 6; // set TXON and RXON
-    pcmMap[PCM_CTRL_REG] &= RXONTXOFF;
     switch(pcmMode) {
         case 1: { // interrupt
             break;
         }
         case 2: { // DMA
+            // start the DMA (which should fill the TX FIFO)
+            dmaMap[DMA_CS_REG(0)] |= 1;
+            // set TXON and/or RXON to begin operation
+            pcmMap(PCM_CTRL_REG) |= RXONTXON;
             break;
         }
         default: { // polling

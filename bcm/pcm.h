@@ -48,9 +48,9 @@ static bool checkInitParams(pcmExternInterface * ext, unsigned char thresh, char
 
 static int getSyncDelay();
 
-static void initRXTXControlRegisters(pcmExternInterface * ext);
+static void initRXTXControlRegisters(pcmExternInterface * ext, bool packedMode);
 
-void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode, DMAControlBlock * cb);
+void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode, bool packedMode, DMAControlBlock * cb);
 
 void startPCM();
 

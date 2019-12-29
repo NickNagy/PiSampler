@@ -1,10 +1,12 @@
 #ifndef DMA_H
 #define DMA_H
 
+#include "pimem.h"
+
 // "DMA directly connected to peripherals. Must be set up to use physical hardware addresses of peripherals"
 
 #define DMA_BASE_OFFSET  0x207000
-#define DMA_BASE_MAPSIZE 0x80 // each channel register set is 0x100 bytes, and I only need 2 channels
+#define DMA_SINGLE_REG_MAPSIZE 0x40 
 
 #define DMA_CHANNEL(x) x*64
 
@@ -88,7 +90,7 @@ transferLength: (in bytes)!
         (in 2D mode) indicates how many xTransferLength transfers performed.
         (in normal mode) becomes the top bits of xTransferLength
     bottom 16 bits: xTransferLength
-    
+
 srcStride: signed (2's comp) byte increment to apply to 
     the source address at the end of each row in 2D mode
 */
@@ -102,5 +104,7 @@ typedef struct DMAControlBlock {
     int nextControlBlockAddr;
     long reserved; 
 } DMAControlBlock;
+
+unsigned * initDMAMap(char numDMARegs);
 
 #endif
