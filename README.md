@@ -35,4 +35,4 @@ For my design I am using the PMOD I2S2 DAC/ADC hat from Digilent: https://store.
 
 **main.c**: main file. BCM funcs are geared towards PMOD I2S2 model.
 
-**wavewriter.c**: C funcs for handling WAVE files. Functions are very general and altered from http://blog.acipo.com/handling-endianness-in-c/ and are not yet incorporated into the rest of the project.
+**wavewriter.c**: C funcs for handling WAVE files. Functions are very general and are adopted from http://blog.acipo.com/generating-wave-files-in-c/. This is not yet incorporated into the rest of the project and serves more as a test file.
