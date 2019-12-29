@@ -129,7 +129,7 @@ packedMode: (for 2 channel data)
 cb: pointer to control block for DMA mode. This input is ignored for polled and interrupt mode
 */
 void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode, bool packedMode, DMAControlBlock * cb) {
-    bool packedMode;
+    bool newPackedMode;
     if (!pcmMap) {
         if(!(pcmMap = initMemMap(PCM_BASE_OFFSET, PCM_BASE_MAPSIZE)))
             return;
@@ -147,16 +147,16 @@ void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode, bool pac
         printf("Aborting...\n");
         return;
     }
-    this->packedMode = packedMode;
+    newPackedMode = packedMode;
     if (packedMode & ext->numChannels != 2)
-        this->packedMode = 0;
+        newPackedMode = 0;
     printf("Initializing PCM interface...");
     pcmMap[PCM_CTRL_REG] = (pcmMap[PCM_CTRL_REG] & CLEAR_CTRL_BITS) + 1; // clear register and set enable bit
     DEBUG_REG("Control reg right after enable set", pcmMap[PCM_CTRL_REG]);
     // CLKM == FSM
-    pcmMap[PCM_MODE_REG] = (3*packedMode << 24) | ((ext->isMasterDevice << 23) | (!ext->inputOnFallingEdge << 22) | (ext->isMasterDevice << 21) | (ext->frameLength << 10) | ext->frameLength);
+    pcmMap[PCM_MODE_REG] = (3*newPackedMode << 24) | ((ext->isMasterDevice << 23) | (!ext->inputOnFallingEdge << 22) | (ext->isMasterDevice << 21) | (ext->frameLength << 10) | ext->frameLength);
     DEBUG_REG("Mode reg", pcmMap[PCM_MODE_REG]);
-    initRXTXControlRegisters(ext, this->packedMode);
+    initRXTXControlRegisters(ext, newPackedMode);
     // assert RXCLR & TXCLR, wait 2 PCM clk cycles
     pcmMap[PCM_CTRL_REG] |= TXCLR | RXCLR;    
     syncWait = getSyncDelay();
@@ -175,14 +175,14 @@ void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode, bool pac
             int fifoPhysAddr = bcm_base + PCM_BASE_OFFSET + (PCM_FIFO_REG<<4);
             cb -> srcAddr = fifoPhysAddr;
             cb -> destAddr = cb-> srcAddr;
-            cb -> nextControlBlockAddr = cb;
+            cb -> nextControlBlockAddr = (int)cb;
             // TODO: verify transfer length line
             // if using packed mode, then a single data transfer is 2-channel, therefore twice the data width
-            cb -> transferLength = this->packedMode ? (ext->dataWidth) >> 1 : (ext->dataWidth) >> 2; // represented in bytes
+            cb -> transferLength = newPackedMode ? (ext->dataWidth) >> 1 : (ext->dataWidth) >> 2; // represented in bytes
             // set DMA transfers to pace with DREQ signals from PCM_DREQ_REG
             // TODO: verify this is correct interpretation??
             cb -> transferInfo |= SRC_DREQ(1) | DEST_DREQ(1);
-            dmaMap[DMA_CONBLK_AD_REG(0)] = CB;
+            dmaMap[DMA_CONBLK_AD_REG(0)] = (int)cb;
             // TODO: make this dynamic
             pcmMap[PCM_DREQ_REG] = ((thresh + 1) << 24) | ((thresh + 1)<<16) | (thresh << 8) | thresh;
             pcmMap[PCM_CTRL_REG] |= (1 << 9); // DMAEN
@@ -262,7 +262,7 @@ void startPCM() {
             // start the DMA (which should fill the TX FIFO)
             dmaMap[DMA_CS_REG(0)] |= 1;
             // set TXON and/or RXON to begin operation
-            pcmMap(PCM_CTRL_REG) |= RXONTXON;
+            pcmMap[PCM_CTRL_REG] |= RXONTXON;
             break;
         }
         default: { // polling
