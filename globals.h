@@ -2,7 +2,7 @@
 #define GLOBALS_H
 
 // for debugging purposes
-#define DEBUG 0
+#define DEBUG 1
 #define VERBOSE 0
 
 #define PRINT_REG(name, reg) printf("%s at address %p = %x\n", name, &reg, reg);
