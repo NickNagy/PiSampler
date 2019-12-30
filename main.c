@@ -10,7 +10,7 @@
 #define DMA_MODE	   2
 
 int main(int agrc, char ** argv) {
-	/* initGPIO();
+	initGPIO();
 	pcmExternInterface pmodMaster;
 	DMAControlBlock cb;
 	pmodMaster.isMasterDevice = 1;
@@ -22,10 +22,5 @@ int main(int agrc, char ** argv) {
 	startClock(0);
 	initPCM(&pmodMaster, 1, DMA_MODE, 1, &cb);
 	startPCM();
-	while(1);*/
-	DMAControlBlock cb;
-	DMAControlBlock * cbPtr = &cb;
-	if (DEBUG) printf("pointer before passed = %p\n", cbPtr);
-	cbPtr = (DMAControlBlock *)getAlignedPointer((void*)cbPtr, 32);
 	return 0;
 }

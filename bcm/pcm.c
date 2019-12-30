@@ -171,6 +171,8 @@ void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode, bool pac
         {
             if (!dmaMap)
                 dmaMap = initDMAMap(1);
+            // ensure that control block is 256bit address aligned
+            cb = (DMAControlBlock*)getAlignedPointer((void*)cb, sizeof(*cb));
             int bcm_base = getPhysAddrBase();
             int fifoPhysAddr = bcm_base + PCM_BASE_OFFSET + (PCM_FIFO_REG<<2);
             if (DEBUG) printf("FIFO physical address = %x\n", fifoPhysAddr);
@@ -191,7 +193,7 @@ void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode, bool pac
                     cb->transferInfo, cb->srcAddr, cb->destAddr, cb->transferLength, cb->srcStride, cb->destStride, cb->nextControlBlockAddr);
             }
             // TODO: make this dynamic
-            pcmMap[PCM_DREQ_REG] = (thresh << 8) | thresh;//((thresh + 1) << 24) | ((thresh + 1)<<16) | (thresh << 8) | thresh;
+            pcmMap[PCM_DREQ_REG] = ((thresh + 1) << 24) | ((thresh + 1)<<16) | (thresh << 8) | thresh;
             pcmMap[PCM_CTRL_REG] |= (1 << 9); // DMAEN
             break;
         }
@@ -267,6 +269,7 @@ void startPCM() {
         case DMA_MODE: { 
             // start the DMA (which should fill the TX FIFO)
             dmaMap[DMA_CS_REG(0)] |= 1;
+            DEBUG_REG("Control reg after DMA enabled", pcmMap[PCM_CTRL_REG]);
             // set TXON and/or RXON to begin operation
             pcmMap[PCM_CTRL_REG] |= RXONTXON;
             break;
