@@ -13,4 +13,6 @@
 #define COND_PRINT_VAL(cond, name, val) if (cond) PRINT_VAL(name, val);
 #define DEBUG_VAL(name, val) COND_PRINT_VAL(DEBUG, name, val)
 
+void * getAlignedPointer(void * ptr, int byteAlignment);
+
 #endif
