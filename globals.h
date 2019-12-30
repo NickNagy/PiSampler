@@ -1,6 +1,8 @@
 #ifndef GLOBALS_H
 #define GLOBALS_H
 
+#include <stdio.h>
+
 // for debugging purposes
 #define DEBUG 1
 #define VERBOSE 0

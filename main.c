@@ -23,7 +23,9 @@ int main(int agrc, char ** argv) {
 	initPCM(&pmodMaster, 1, DMA_MODE, 1, &cb);
 	startPCM();
 	while(1);*/
-	DMAControlBlock * cb;
-	cb = (DMAControlBlock *)getAlignedPointer((void*)cb, 32);
+	DMAControlBlock cb;
+	DMAControlBlock * cbPtr = &cb;
+	if (DEBUG) printf("pointer before passed = %p\n", cbPtr);
+	cbPtr = (DMAControlBlock *)getAlignedPointer((void*)cbPtr, 32);
 	return 0;
 }
