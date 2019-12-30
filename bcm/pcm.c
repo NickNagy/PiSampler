@@ -172,7 +172,8 @@ void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode, bool pac
             if (!dmaMap)
                 dmaMap = initDMAMap(1);
             int bcm_base = getPhysAddrBase();
-            int fifoPhysAddr = bcm_base + PCM_BASE_OFFSET + (PCM_FIFO_REG<<4);
+            int fifoPhysAddr = bcm_base + PCM_BASE_OFFSET + (PCM_FIFO_REG<<2);
+            if (DEBUG) printf("FIFO physical address = %x\n", fifoPhysAddr);
             cb -> srcAddr = fifoPhysAddr;
             cb -> destAddr = cb-> srcAddr;
             cb -> nextControlBlockAddr = (int)cb;
@@ -183,10 +184,15 @@ void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode, bool pac
             // TODO: verify this is correct interpretation??
             cb -> transferInfo |= SRC_DREQ(1) | DEST_DREQ(1);
             dmaMap[DMA_CONBLK_AD_REG(0)] = (int)cb;
+            DEBUG_VAL("size of control block", sizeof(*cb));
+            if (DEBUG) {
+                printf("Address of control block = %p\n", cb);
+                printf("\tTransfer info = %x\n\tSource address = %x\n\tDestination address = %x\n\tTransfer length = %x\n\tSource stride = %x\n\tDest stride = %x\n\tNext CB address = %x\n",
+                    cb->transferInfo, cb->srcAddr, cb->destAddr, cb->transferLength, cb->srcStride, cb->destStride, cb->nextControlBlockAddr);
+            }
             // TODO: make this dynamic
-            pcmMap[PCM_DREQ_REG] = ((thresh + 1) << 24) | ((thresh + 1)<<16) | (thresh << 8) | thresh;
+            pcmMap[PCM_DREQ_REG] = (thresh << 8) | thresh;//((thresh + 1) << 24) | ((thresh + 1)<<16) | (thresh << 8) | thresh;
             pcmMap[PCM_CTRL_REG] |= (1 << 9); // DMAEN
-            pcmMap[PCM_DREQ_REG] |= (thresh << 8) | thresh;
             break;
         }
         default: // polling
