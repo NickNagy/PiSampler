@@ -5,7 +5,6 @@
 #include "gpio.h"
 #include "dma.h"
 #include "../globals.h"
-#include <sys/time.h>
 
 #define PCM_BASE_OFFSET 0x203000
 #define PCM_BASE_MAPSIZE 9//0x24

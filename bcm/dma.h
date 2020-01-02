@@ -5,7 +5,7 @@
 
 // "DMA directly connected to peripherals. Must be set up to use physical hardware addresses of peripherals"
 
-#define DMA_BASE_OFFSET  0x207000
+#define DMA_BASE_OFFSET  0x007000//0x207000
 #define DMA_SINGLE_REG_MAPSIZE 0x40 
 
 #define DMA_CHANNEL(x) x*64
@@ -102,7 +102,7 @@ typedef struct DMAControlBlock {
     short srcStride;
     short destStride;
     int nextControlBlockAddr;
-    long reserved; 
+    long long reserved; 
 } DMAControlBlock;
 
 unsigned * initDMAMap(char numDMARegs);

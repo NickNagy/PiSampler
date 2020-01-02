@@ -178,6 +178,8 @@ void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode, bool pac
             if (DEBUG) printf("FIFO physical address = %x\n", fifoPhysAddr);
             cb -> srcAddr = fifoPhysAddr;
             cb -> destAddr = cb-> srcAddr;
+            cb -> srcStride = 0; // TODO
+            cb -> destStride = 0; // TODO
             cb -> nextControlBlockAddr = (int)cb;
             // TODO: verify transfer length line
             // if using packed mode, then a single data transfer is 2-channel, therefore twice the data width

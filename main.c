@@ -22,5 +22,6 @@ int main(int agrc, char ** argv) {
 	startClock(0);
 	initPCM(&pmodMaster, 1, DMA_MODE, 1, &cb);
 	startPCM();
+	while(1);
 	return 0;
 }

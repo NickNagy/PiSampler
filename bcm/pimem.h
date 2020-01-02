@@ -1,8 +1,6 @@
 #ifndef PIMEM_H
 #define PIMEM_H
 
-#include <stdio.h>
-#include <stdbool.h>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <bcm_host.h>

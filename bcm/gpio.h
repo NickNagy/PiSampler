@@ -3,7 +3,6 @@
 
 #include "../globals.h"
 #include "pimem.h"
-#include <unistd.h>
 
 #define FSEL_SHIFT(x) 3*x
 #define FSEL_CLEAR_PIN_BITS(x) ~(7 << FSEL_SHIFT(x))

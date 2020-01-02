@@ -2,6 +2,9 @@
 #define GLOBALS_H
 
 #include <stdio.h>
+#include <unistd.h>
+#include <sys/time.h>
+#include <stdbool.h>
 
 // for debugging purposes
 #define DEBUG 1
