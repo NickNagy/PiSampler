@@ -6,7 +6,7 @@
 // "DMA directly connected to peripherals. Must be set up to use physical hardware addresses of peripherals"
 
 #define DMA_BASE_OFFSET  0x007000
-#define DMA_SINGLE_REG_MAPSIZE 0x40 
+#define DMA_SINGLE_REG_MAPSIZE 0x100
 
 #define DMA_CHANNEL(x) x*64
 
@@ -98,9 +98,11 @@ transferLength: (in bytes)!
 srcStride: signed (2's comp) byte increment to apply to 
     the source address at the end of each row in 2D mode
 */
-#define PRINT_CTRL_BLK(name, cb) printf("Address of %s = %p\n\tTransfer info = %x\n\tSource address = %x\n\tDestination address = %x\n\tTransfer length = %x\n\tSource stride = %x\n\tDest stride = %x\n\tNext CB address = %x\n",
+
+// TODO
+/*#define PRINT_CTRL_BLK(name, cb) printf("Address of %s = %p\n\tTransfer info = %x\n\tSource address = %x\n\tDestination address = %x\n\tTransfer length = %x\n\tSource stride = %x\n\tDest stride = %x\n\tNext CB address = %x\n",
                            name, cb, cb->transferInfo, cb->srcAddr, cb->destAddr, cb->transferLength, cb->srcStride, cb->destStride, cb->nextControlBlockAddr);
-#define DEBUG_CTRL_BLK(name, cb) if (DEBUG) PRINT_CTRL_BLK(name, cb);
+#define DEBUG_CTRL_BLK(name, cb) if (DEBUG) PRINT_CTRL_BLK(name, cb)*/
 
 typedef struct DMAControlBlock {
     int transferInfo;

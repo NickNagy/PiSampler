@@ -8,7 +8,8 @@ static bool pcmRunning;
 static char pcmMode;
 static int syncWait;
 
-static DMAControlBlock * rxCtrlBlk, txCtrlBlk;
+static DMAControlBlock * rxCtrlBlk;
+static DMAControlBlock * txCtrlBlk;
 
 // TODO
 static bool checkFrameAndChannelWidth(pcmExternInterface * ext) {
@@ -98,47 +99,79 @@ static void initRXTXControlRegisters(pcmExternInterface * ext, bool packedMode) 
 }
 
 
-static void initDMAMode(unsigned char thresh, bool packedMode) {
-    int * rxtxRAMPtr;
+static void initDMAMode(char dataWidth, unsigned char thresh, bool packedMode) {
+    int rxtxRAM = 0;
     if (!dmaMap)
         dmaMap = initDMAMap(2);
-
-    // ensure that control block is 256bit address aligned
-    rxCtrlBlk = (DMAControlBlock*)getAlignedPointer((void*)rxCtrlBlk, sizeof(*rxCtrlBlk));
-    txCtrlBlk = (DMAControlBlock*)getAlignedPointer((void*)txCtrlBlk, sizeof(*txCtrlBlk));
-
+    DMAControlBlock rxCtrlDummy, txCtrlDummy;
+    
     // peripheral addresses must be physical
     int bcm_base = getPhysAddrBase();
     int fifoPhysAddr = bcm_base + PCM_BASE_OFFSET + (PCM_FIFO_REG<<2);
     if (DEBUG) printf("FIFO physical address = %x\n", fifoPhysAddr);
-
+    
     // set src and dest as well as DREQ signals
-    rxCtrlBlk -> srcAddr = fifoPhysAddr;
-    rxCtrlBlk -> destAddr = rxtxRAMPtr;
-    rxCtrlBlk -> transferInfo = PERMAP(RXPERMAP) | SRC_DREQ;
-    txCtrlBlk -> srcAddr = rxtxRAMPtr;
-    txCtrlBlk -> destAddr = fifoPhysAddr;
-    txCtrlBlk -> transferInfo = PERMAP(TXPERMAP) | DEST_DREQ;
-
+    rxCtrlDummy.srcAddr = fifoPhysAddr;
+    rxCtrlDummy.destAddr = (int)&rxtxRAM;
+    rxCtrlDummy.transferInfo = PERMAP(RXPERMAP) | SRC_DREQ;
+    txCtrlDummy.srcAddr = rxCtrlDummy.destAddr;
+    txCtrlDummy.destAddr = rxCtrlDummy.srcAddr;
+    txCtrlDummy.transferInfo = PERMAP(TXPERMAP) | DEST_DREQ;
+    
     // TODO: verify transfer length line
     // if using packed mode, then a single data transfer is 2-channel, therefore twice the data width
-    rxCtrlBlk -> transferLength = packedMode ? (ext->dataWidth) >> 1 : (ext->dataWidth) >> 2; // represented in bytes
-    txCtrlBlk -> transferLength = rxCtrlBlk -> transferLength;
+    rxCtrlDummy.transferLength = packedMode ? dataWidth >> 1 : dataWidth >> 2; // represented in bytes
+    txCtrlDummy.transferLength = rxCtrlDummy.transferLength;
+    
+    // initialize ptrs, then 256b-align if necessary
+    rxCtrlBlk = &rxCtrlDummy;
+    txCtrlBlk = &txCtrlDummy;
+    rxCtrlBlk = (DMAControlBlock*)getAlignedPointer((void*)rxCtrlBlk, sizeof(*rxCtrlBlk));
+    txCtrlBlk = (DMAControlBlock*)getAlignedPointer((void*)txCtrlBlk, sizeof(*txCtrlBlk));
+    *rxCtrlBlk = rxCtrlDummy;
+    *txCtrlBlk = txCtrlDummy;
+    
+    rxCtrlBlk -> srcStride = 0;
+    rxCtrlBlk -> destStride = 0;
+    rxCtrlBlk -> reserved[1] = 0;
+    rxCtrlBlk -> reserved[0] = 0;
+    txCtrlBlk -> srcStride = 0;
+    txCtrlBlk -> destStride = 0;
+    txCtrlBlk -> reserved[1] = 0;
+    txCtrlBlk -> reserved[0] = 0;
+    
+    if (DEBUG) printf("rx ctrl blk address = %p\ntx ctrl blk address = %p\n", rxCtrlBlk, txCtrlBlk);
+    
+    if(VERBOSE) printf("Control blocks set.\n");
+    
 
     // set both to run infinitely by fetching itself after operation complete
-    rxCtrlBlk -> nextControlBlockAddr = rxCtrlBlk;
-    txCtrlBlk -> nextControlBlockAddr = txCtrlBlk;
+    rxCtrlBlk -> nextControlBlockAddr = (int)rxCtrlBlk;
+    txCtrlBlk -> nextControlBlockAddr = (int)txCtrlBlk;
     DEBUG_VAL("size of control block", sizeof(*rxCtrlBlk));
-    DEBUG_CTRL_BLK("rx ctrl block", rxCtrlBlk);
-    DEBUG_CTRL_BLK("tx ctrl block", txCtrlBlk);
+    
+    if(VERBOSE) printf("Control block loop(s) set.\n");
+    
+    // doesn't work ... could try using debug reg in DMA
+    /*DEBUG_CTRL_BLK("rx ctrl block", rxCtrlBlk);
+    DEBUG_CTRL_BLK("tx ctrl block", txCtrlBlk);*/
+    if (DEBUG) {
+        printf("RX:\n\ttransfer info = %x\n\tsrc address = %x\n\tdest address = %x\n\ttransfer length = %d\n\tsrc stride = %d\n\tdest stride = %d\n\tnext blk = %x\n\treserved[1] = %d\n\treserved[0] = %d\n",
+                rxCtrlBlk -> transferInfo, rxCtrlBlk -> srcAddr, rxCtrlBlk -> destAddr, rxCtrlBlk -> transferLength, rxCtrlBlk -> srcStride, rxCtrlBlk -> destStride, rxCtrlBlk -> nextControlBlockAddr, rxCtrlBlk->reserved[1],
+                rxCtrlBlk -> reserved[0]);
+    }
 
     // set up one DMA channel for RX, one for TX
     dmaMap[DMA_CONBLK_AD_REG(0)] = (int)rxCtrlBlk;
     dmaMap[DMA_CONBLK_AD_REG(1)] = (int)txCtrlBlk;
+    
+    if(VERBOSE) printf("Control blocks loaded into DMA registers.\n");
 
     // TODO: make this dynamic
     pcmMap[PCM_DREQ_REG] = ((thresh + 1) << 24) | ((thresh + 1)<<16) | (thresh << 8) | thresh;
     pcmMap[PCM_CTRL_REG] |= (1 << 9); // DMAEN
+    
+    if (VERBOSE) printf("DMA mode successfully initialized.\n");
 }
 
 
@@ -151,7 +184,7 @@ thresh: threshold for TX and RX registers. Interpretation depends on mode
     for poll mode:
     for interrupt mode:
     for DMA mode:
-        value of TX & RX request level (in DREQ_A reg). When the FIFO data level is above this the PCM will assert its DMA DREQ
+        value of TX & RX request levelext (in DREQ_A reg). When the FIFO data level is above this the PCM will assert its DMA DREQ
         signal to request that some more data is read out of the FIFO
 
 mode:
@@ -178,7 +211,7 @@ void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode, bool pac
         printf("ERROR: PCM interface is currently running.\nAborting...\n");
         return;
     }
-    if (!checkInitParams(ext, thresh, mode, cb)) {
+    if (!checkInitParams(ext, thresh, mode)) {
         printf("Aborting...\n");
         return;
     }
@@ -208,7 +241,7 @@ void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode, bool pac
         }
         case DMA_MODE:
         {
-            initDMAMode(thresh, packedMode);
+            initDMAMode(ext->dataWidth, thresh, packedMode);
             break;
         }
         default: // polling
@@ -218,6 +251,7 @@ void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode, bool pac
         }
     }
 
+    if (VERBOSE) printf("Enabling PCM...\n");
     pcmMap[PCM_CTRL_REG] |= 1; // enable PCM
     DEBUG_REG("Mode reg at end of init", pcmMap[PCM_MODE_REG]);
     DEBUG_REG("Control reg at end of init", pcmMap[PCM_CTRL_REG]);
@@ -247,6 +281,7 @@ void startPCM() {
         return;
     }
     pcmRunning = 1;
+    if (VERBOSE) printf("Starting PCM...\n");
     // NOTE: transmit FIFO should be pre-loaded with data
     switch(pcmMode) {
         case INTERRUPT_MODE: { 
@@ -257,6 +292,7 @@ void startPCM() {
             dmaMap[DMA_CS_REG(0)] |= 1;
             dmaMap[DMA_CS_REG(1)] |= 1;
             DEBUG_REG("Control reg after DMA enabled", pcmMap[PCM_CTRL_REG]);
+            if (VERBOSE) printf("Running...\n");
             break;
         }
         default: { // polling

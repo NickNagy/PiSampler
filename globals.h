@@ -8,7 +8,10 @@
 
 // for debugging purposes
 #define DEBUG 1
-#define VERBOSE 0
+#define VERBOSE 1
+
+#define DEBUG_MSG(msg) if (DEBUG) printf(msg);
+#define VERBOSE_MSG(msg) if (VERBOSE) printf(msg);
 
 #define PRINT_REG(name, reg) printf("%s at address %p = %x\n", name, &reg, reg);
 #define COND_PRINT_REG(cond, name, reg) if (cond) { PRINT_REG(name, reg) }

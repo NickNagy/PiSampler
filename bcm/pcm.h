@@ -7,7 +7,7 @@
 #include "../globals.h"
 
 #define PCM_BASE_OFFSET 0x203000
-#define PCM_BASE_MAPSIZE 9//0x24
+#define PCM_BASE_MAPSIZE 0x24
 
 #define PCM_CTRL_REG   0
 #define PCM_FIFO_REG   1
@@ -59,7 +59,7 @@ static int getSyncDelay();
 
 static void initRXTXControlRegisters(pcmExternInterface * ext, bool packedMode);
 
-static void initDMAMode(unsigned char thresh, bool packedMode);
+static void initDMAMode(char dataWidth, unsigned char thresh, bool packedMode);
 
 void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode, bool packedMode);
 
