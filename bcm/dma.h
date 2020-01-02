@@ -5,7 +5,7 @@
 
 // "DMA directly connected to peripherals. Must be set up to use physical hardware addresses of peripherals"
 
-#define DMA_BASE_OFFSET  0x007000//0x207000
+#define DMA_BASE_OFFSET  0x007000
 #define DMA_SINGLE_REG_MAPSIZE 0x40 
 
 #define DMA_CHANNEL(x) x*64
@@ -73,14 +73,18 @@ char priorityLevels: (x << 16)
     1 = 2D mode: interpret TXFR_LEN register as YLENGTH # of XLENGTH-sized transfers. Add strides to addr after each transfer
 0: INTEN: 1 = generate an interrupt when transfer described by current CB completes
 */
-#define SRC_IGNORE(x)  x<<11
-#define SRC_DREQ(x)    x<<10
+#define RXPERMAP 3     
+#define TXPERMAP 2
+
+#define PERMAP(x)      x<<16
+#define SRC_IGNORE     1<<11
+#define SRC_DREQ       1<<10
 #define SRC_WIDTH(x)   x<<9
-#define SRC_INC(x)     x<<8
-#define DEST_IGNORE(x) x<<7
-#define DEST_DREQ(x)   x<<6
+#define SRC_INC        1<<8
+#define DEST_IGNORE    1<<7
+#define DEST_DREQ      1<<6
 #define DEST_WIDTH(x)  x<<5
-#define DEST_INC(x)    x<<4
+#define DEST_INC       1<<4
 #define WAIT_RESP(x)   x<<3
 #define TD_MODE(x)     x<<1
 
@@ -94,6 +98,10 @@ transferLength: (in bytes)!
 srcStride: signed (2's comp) byte increment to apply to 
     the source address at the end of each row in 2D mode
 */
+#define PRINT_CTRL_BLK(name, cb) printf("Address of %s = %p\n\tTransfer info = %x\n\tSource address = %x\n\tDestination address = %x\n\tTransfer length = %x\n\tSource stride = %x\n\tDest stride = %x\n\tNext CB address = %x\n",
+                           name, cb, cb->transferInfo, cb->srcAddr, cb->destAddr, cb->transferLength, cb->srcStride, cb->destStride, cb->nextControlBlockAddr);
+#define DEBUG_CTRL_BLK(name, cb) if (DEBUG) PRINT_CTRL_BLK(name, cb);
+
 typedef struct DMAControlBlock {
     int transferInfo;
     int srcAddr;
@@ -102,7 +110,7 @@ typedef struct DMAControlBlock {
     short srcStride;
     short destStride;
     int nextControlBlockAddr;
-    long long reserved; 
+    int reserved[2];
 } DMAControlBlock;
 
 unsigned * initDMAMap(char numDMARegs);

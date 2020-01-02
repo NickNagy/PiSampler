@@ -21,6 +21,7 @@
 
 #define TXCLR 8
 #define RXCLR 16
+#define STBY  (1<<25)
 
 // bitwise-AND with registers --> avoids changing RO bits
 #define CLEAR_CTRL_BITS 0x7E6000
@@ -52,17 +53,15 @@ typedef struct pcmExternInterface {
 
 static bool checkFrameAndChannelWidth(pcmExternInterface * ext);
 
-static bool checkInitParams(pcmExternInterface * ext, unsigned char thresh, char mode, DMAControlBlock * cb);
+static bool checkInitParams(pcmExternInterface * ext, unsigned char thresh, char mode);
 
 static int getSyncDelay();
 
 static void initRXTXControlRegisters(pcmExternInterface * ext, bool packedMode);
 
-void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode, bool packedMode, DMAControlBlock * cb);
+static void initDMAMode(unsigned char thresh, bool packedMode);
 
-void RXTest();
-
-void TXTest();
+void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode, bool packedMode);
 
 void startPCM();
 

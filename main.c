@@ -9,10 +9,10 @@
 #define INTERRUPT_MODE 1
 #define DMA_MODE	   2
 
+// possibly only runs if DMA is initialized before GPIO?
 int main(int agrc, char ** argv) {
 	initGPIO();
 	pcmExternInterface pmodMaster;
-	DMAControlBlock cb;
 	pmodMaster.isMasterDevice = 1;
 	pmodMaster.numChannels = 2;
 	pmodMaster.ch1Pos = 1;
@@ -20,7 +20,7 @@ int main(int agrc, char ** argv) {
 	pmodMaster.dataWidth = 16;
 	initClock(0, 11289600, 1, PLLD);
 	startClock(0);
-	initPCM(&pmodMaster, 1, DMA_MODE, 1, &cb);
+	initPCM(&pmodMaster, 1, DMA_MODE, 1);
 	startPCM();
 	while(1);
 	return 0;
