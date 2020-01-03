@@ -61,10 +61,10 @@ static int getSyncDelay() {
     sync = (pcmMap[PCM_CTRL_REG] >> 24) & 1;
     notSync = sync^1;
     // write opposite value back to reg
-    pcmMap[PCM_CTRL_REG] &= ~(sync<<24);
+    pcmMap[PCM_CTRL_REG] ^= 1<<24;
     // time
     gettimeofday(&initTime, NULL);
-    while ((pcmMap[PCM_CTRL_REG] >> 24) & notSync);
+    while ((pcmMap[PCM_CTRL_REG] >> 24) ^ notSync); // wait until values are the same of each other (this will equate to 0)
     gettimeofday(&endTime, NULL);
     int usElapsed = ((endTime.tv_sec - initTime.tv_sec)*1000000) + (endTime.tv_usec - initTime.tv_usec);
     DEBUG_VAL("2-cycle PCM clk delay in micros", (usElapsed + (10 - (usElapsed % 10))));
