@@ -107,12 +107,12 @@ static void initDMAMode(char dataWidth, unsigned char thresh, bool packedMode) {
     
     // peripheral addresses must be physical
     int bcm_base = getPhysAddrBase();
-    int fifoPhysAddr = bcm_base + PCM_BASE_OFFSET + (PCM_FIFO_REG<<2);
+    unsigned fifoPhysAddr = bcm_base + PCM_BASE_OFFSET + (PCM_FIFO_REG<<2);
     if (DEBUG) printf("FIFO physical address = %x\n", fifoPhysAddr);
     
     // set src and dest as well as DREQ signals
     rxCtrlDummy.srcAddr = fifoPhysAddr;
-    rxCtrlDummy.destAddr = (int)&rxtxRAM;
+    rxCtrlDummy.destAddr = (unsigned)&rxtxRAM;
     rxCtrlDummy.transferInfo = PERMAP(RXPERMAP) | SRC_DREQ;
     txCtrlDummy.srcAddr = rxCtrlDummy.destAddr;
     txCtrlDummy.destAddr = rxCtrlDummy.srcAddr;
@@ -131,12 +131,10 @@ static void initDMAMode(char dataWidth, unsigned char thresh, bool packedMode) {
     *rxCtrlBlk = rxCtrlDummy;
     *txCtrlBlk = txCtrlDummy;
     
-    rxCtrlBlk -> srcStride = 0;
-    rxCtrlBlk -> destStride = 0;
+    rxCtrlBlk -> stride = 0;
     rxCtrlBlk -> reserved[1] = 0;
     rxCtrlBlk -> reserved[0] = 0;
-    txCtrlBlk -> srcStride = 0;
-    txCtrlBlk -> destStride = 0;
+    txCtrlBlk -> stride = 0;
     txCtrlBlk -> reserved[1] = 0;
     txCtrlBlk -> reserved[0] = 0;
     
@@ -146,8 +144,8 @@ static void initDMAMode(char dataWidth, unsigned char thresh, bool packedMode) {
     
 
     // set both to run infinitely by fetching itself after operation complete
-    rxCtrlBlk -> nextControlBlockAddr = (int)rxCtrlBlk;
-    txCtrlBlk -> nextControlBlockAddr = (int)txCtrlBlk;
+    rxCtrlBlk -> nextControlBlockAddr = (unsigned)rxCtrlBlk;
+    txCtrlBlk -> nextControlBlockAddr = (unsigned)txCtrlBlk;
     DEBUG_VAL("size of control block", sizeof(*rxCtrlBlk));
     
     if(VERBOSE) printf("Control block loop(s) set.\n");
@@ -156,14 +154,17 @@ static void initDMAMode(char dataWidth, unsigned char thresh, bool packedMode) {
     /*DEBUG_CTRL_BLK("rx ctrl block", rxCtrlBlk);
     DEBUG_CTRL_BLK("tx ctrl block", txCtrlBlk);*/
     if (DEBUG) {
-        printf("RX:\n\ttransfer info = %x\n\tsrc address = %x\n\tdest address = %x\n\ttransfer length = %d\n\tsrc stride = %d\n\tdest stride = %d\n\tnext blk = %x\n\treserved[1] = %d\n\treserved[0] = %d\n",
-                rxCtrlBlk -> transferInfo, rxCtrlBlk -> srcAddr, rxCtrlBlk -> destAddr, rxCtrlBlk -> transferLength, rxCtrlBlk -> srcStride, rxCtrlBlk -> destStride, rxCtrlBlk -> nextControlBlockAddr, rxCtrlBlk->reserved[1],
+        printf("RX:\n\ttransfer info = %x\n\tsrc address = %x\n\tdest address = %x\n\ttransfer length = %d\n\tstride = %d\n\tnext blk = %x\n\treserved[1] = %d\n\treserved[0] = %d\n",
+                rxCtrlBlk -> transferInfo, rxCtrlBlk -> srcAddr, rxCtrlBlk -> destAddr, rxCtrlBlk -> transferLength, rxCtrlBlk -> stride, rxCtrlBlk -> nextControlBlockAddr, rxCtrlBlk->reserved[1],
                 rxCtrlBlk -> reserved[0]);
     }
 
     // set up one DMA channel for RX, one for TX
     dmaMap[DMA_CONBLK_AD_REG(0)] = (int)rxCtrlBlk;
     dmaMap[DMA_CONBLK_AD_REG(1)] = (int)txCtrlBlk;
+    
+    DEBUG_REG("ctrl blk reg 0", dmaMap[DMA_CONBLK_AD_REG(0)]);
+    DEBUG_REG("ctrl blk reg 1", dmaMap[DMA_CONBLK_AD_REG(1)]);
     
     if(VERBOSE) printf("Control blocks loaded into DMA registers.\n");
 
@@ -201,11 +202,13 @@ void initPCM(pcmExternInterface * ext, unsigned char thresh, char mode, bool pac
     if (!pcmMap) {
         if(!(pcmMap = initMemMap(PCM_BASE_OFFSET, PCM_BASE_MAPSIZE)))
             return;
-        // set all PCM GPIO regs to their ALT0 func
+        /*temporarily re-located to main.c to test order of inits
+         * 
+         * // set all PCM GPIO regs to their ALT0 func
         for (int i = 18; i <= 21; i++) {
             setPinMode(i, 4);
             if (DEBUG) printf("pin %d set to ALT0\n", i);
-        }
+        }*/
     }
     if (pcmRunning) {
         printf("ERROR: PCM interface is currently running.\nAborting...\n");
