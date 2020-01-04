@@ -13,3 +13,8 @@ void * getAlignedPointer(void * ptr, int byteAlignment) {
     }
     return ptr;
 }
+
+// from pigpio.c --> https://github.com/joan2937/pigpio/blob/master/pigpio.c
+unsigned gpioDelay(unsigned micros) {
+    return 0;
+}
