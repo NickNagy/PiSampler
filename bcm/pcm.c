@@ -289,6 +289,12 @@ void initPCMpigpio(pcmExternInterface * ext, unsigned char thresh, bool packedMo
     dmaMap[DMA_CS_REG(0)] |= 1;
 
     pcmMap[PCM_CTRL_REG] |= RXONTXON;
+
+    if (DEBUG) {
+        for (int i = 0; i < 100; i++) {
+            DEBUG_REG("DMA debug reg", dmaMap[DMA_DEBUG_REG(0)]);
+        }
+    }
 }
 
 void startPCM() {
