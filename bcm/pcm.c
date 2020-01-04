@@ -9,6 +9,7 @@ static int syncWait;
 
 static DMAControlBlock * rxCtrlBlk;
 static DMAControlBlock * txCtrlBlk;
+static unsigned * rxtxRAMptr;
 
 // TODO
 static bool checkFrameAndChannelWidth(pcmExternInterface * ext) {
@@ -95,6 +96,7 @@ static void initRXTXControlRegisters(pcmExternInterface * ext, bool packedMode) 
 
 static void initDMAMode(char dataWidth, unsigned char thresh, bool packedMode) {
     int rxtxRAM = 0;
+    rxtxRAMptr = &rxtxRAM;
     if (!dmaMap)
         dmaMap = initDMAMap(2);
     DMAControlBlock rxCtrlDummy, txCtrlDummy;
@@ -113,7 +115,7 @@ static void initDMAMode(char dataWidth, unsigned char thresh, bool packedMode) {
     
     // set src and dest as well as DREQ signals
     rxCtrlDummy.srcAddr = fifoPhysAddr;
-    rxCtrlDummy.destAddr = (unsigned)&rxtxRAM;
+    rxCtrlDummy.destAddr = (unsigned)rxtxRAMptr;
     rxCtrlDummy.transferInfo = PERMAP(RXPERMAP) | SRC_DREQ;
     txCtrlDummy.srcAddr = rxCtrlDummy.destAddr;
     txCtrlDummy.destAddr = rxCtrlDummy.srcAddr;
@@ -238,6 +240,7 @@ void initPCM(pcmExternInterface * ext, unsigned char thresh, bool packedMode) {
     
     pcmInitialized = 1;
     printf("done.\n");
+
 }
 
 // based on initPCM method from --> https://github.com/joan2937/pigpio/blob/master/pigpio.c
