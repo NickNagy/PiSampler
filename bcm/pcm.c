@@ -216,7 +216,7 @@ void initPCM(pcmExternInterface * ext, unsigned char thresh, bool packedMode) {
 
     // RAMs should be released from standby before receive/transmit ops
     pcmMap[PCM_CTRL_REG] |= STBY;
-    usleep(getSyncDelay*3); // allow for at least 4 pcm clock cycles after clearing
+    usleep(getSyncDelay*2); // allow for at least 4 pcm clock cycles after clearing
 
     initDMAMode(ext->dataWidth, thresh, packedMode);
 
