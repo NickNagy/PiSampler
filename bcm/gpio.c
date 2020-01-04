@@ -1,6 +1,6 @@
 #include "gpio.h"
 
-static unsigned * gpioMap;
+static volatile unsigned * gpioMap = 0;
 
 // please call this function in your main() before everything else
 void initGPIO() {

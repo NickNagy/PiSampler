@@ -59,9 +59,6 @@ static void initDMAMode(char dataWidth, unsigned char thresh, bool packedMode);
 
 void initPCM(pcmExternInterface * ext, unsigned char thresh, bool packedMode);
 
-// based on initPCM method from --> https://github.com/joan2937/pigpio/blob/master/pigpio.c
-void initPCMpigpio(pcmExternInterface * ext, unsigned char thresh, bool packedMode);
-
 void startPCM();
 
 #endif

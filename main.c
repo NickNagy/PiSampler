@@ -14,15 +14,14 @@ int main(int agrc, char ** argv) {
 	pmodMaster.inputOnFallingEdge = 1;
 	pmodMaster.dataWidth = 16;
 	
-	//initPCM(&pmodMaster, 1, 1);
+	initPCM(&pmodMaster, 1, 1);
 
 	initClock(0, 11289600, 1, PLLD);
 	startClock(0);
-
-	// testing w/ pigpio implementation of PCM
-	initPCMpigpio(&pmodMaster, 1, 1);
 	
-	//startPCM();
+	usleep(5000000);
+	
+	startPCM();
 
 	return 0;
 }

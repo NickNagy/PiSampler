@@ -1,7 +1,7 @@
 #include "pcm.h"
 
-static unsigned * pcmMap; 
-static unsigned * dmaMap;
+static volatile unsigned * pcmMap = 0; 
+static volatile unsigned * dmaMap = 0;
 static bool pcmInitialized;
 static bool pcmRunning;
 
@@ -149,8 +149,8 @@ static void initDMAMode(char dataWidth, unsigned char thresh, bool packedMode) {
     //rxCtrlBlk -> nextControlBlockAddr = (unsigned)rxCtrlBlk;
     //txCtrlBlk -> nextControlBlockAddr = (unsigned)txCtrlBlk;
 
-    rxCtrlBlk -> nextControlBlockAddr = (unsigned)txCtrlBlk;
-    txCtrlBlk -> nextControlBlockAddr = (unsigned)rxCtrlBlk;
+    rxCtrlBlk -> nextControlBlockAddr = (unsigned)rxCtrlBlk;
+    txCtrlBlk -> nextControlBlockAddr = (unsigned)txCtrlBlk;
 
     DEBUG_VAL("size of control block", sizeof(*rxCtrlBlk));
     
@@ -167,7 +167,7 @@ static void initDMAMode(char dataWidth, unsigned char thresh, bool packedMode) {
 
     // set up one DMA channel for RX, one for TX
     dmaMap[DMA_CONBLK_AD_REG(0)] = (int)rxCtrlBlk;
-    //dmaMap[DMA_CONBLK_AD_REG(1)] = (int)txCtrlBlk;
+    dmaMap[DMA_CONBLK_AD_REG(1)] = (int)txCtrlBlk;
 
     VERBOSE_MSG("Control blocks loaded into DMA registers.\nDMA mode successfully initialized.\n");
 }
@@ -243,63 +243,6 @@ void initPCM(pcmExternInterface * ext, unsigned char thresh, bool packedMode) {
 
 }
 
-// based on initPCM method from --> https://github.com/joan2937/pigpio/blob/master/pigpio.c
-void initPCMpigpio(pcmExternInterface * ext, unsigned char thresh, bool packedMode) {
-    if (!pcmMap) {
-        if(!(pcmMap = initMemMap(PCM_BASE_OFFSET, PCM_BASE_MAPSIZE)))
-            return;
-    }
-    
-    pcmMap[PCM_CTRL_REG] = 0;
-
-    usleep(1000);
-
-    pcmMap[PCM_FIFO_REG] = 0;
-    pcmMap[PCM_MODE_REG] = 0;
-    pcmMap[PCM_RXC_REG] = 0;
-    pcmMap[PCM_TXC_REG] = 0;
-    pcmMap[PCM_DREQ_REG] = 0;
-    pcmMap[PCM_INTEN_REG] = 0;
-    pcmMap[PCM_INTSTC_REG] = 0;
-    pcmMap[PCM_GRAY_REG] = 0;
-
-    usleep(1000);
-
-    pcmMap[PCM_MODE_REG] = 0x3A00000;
-    pcmMap[PCM_TXC_REG] = 0x40184218;
-    pcmMap[PCM_CTRL_REG] |= STBY; 
-
-    usleep(1000);
-
-    pcmMap[PCM_CTRL_REG] |= TXCLR | RXCLR;
-
-    initDMAMode(ext->dataWidth, thresh, packedMode);
-
-    pcmMap[PCM_INTSTC_REG] = 0b1111;
-
-    pcmMap[PCM_CTRL_REG] |= 1; // enable PCM
-
-    for (int i = 18; i <= 21; i++) {
-        setPinMode(i, 4);
-        if (DEBUG) printf("pin %d set to ALT0\n", i);
-    }
-
-    pcmInitialized = 1;
-    pcmRunning = 1;
-
-    // start dma controllers
-    //dmaMap[DMA_CS_REG(1)] |= 1;
-    dmaMap[DMA_CS_REG(0)] |= 1;
-
-    pcmMap[PCM_CTRL_REG] |= RXONTXON;
-
-    if (DEBUG) {
-        for (int i = 0; i < 100; i++) {
-            DEBUG_REG("DMA debug reg", dmaMap[DMA_DEBUG_REG(0)]);
-        }
-    }
-}
-
 void startPCM() {
     if (!pcmInitialized) {
         printf("ERROR: PCM interface has not been initialized yet.\n");
@@ -310,16 +253,7 @@ void startPCM() {
     // NOTE: transmit FIFO should be pre-loaded with data
     // start the DMA (which should fill the TX FIFO)
     dmaMap[DMA_CS_REG(1)] |= 1;
-    
-    usleep(1000);
-    
-    pcmMap[PCM_CTRL_REG] |= TXON;
-    
-    usleep(1000);
-    
     dmaMap[DMA_CS_REG(0)] |= 1;
-    
-    usleep(1000);
     
     DEBUG_REG("Control reg after DMA enabled", pcmMap[PCM_CTRL_REG]);
     VERBOSE_MSG("Running...\n");

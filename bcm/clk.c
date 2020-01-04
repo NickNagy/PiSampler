@@ -1,6 +1,6 @@
 #include "clk.h"
 
-static unsigned * clkMap;
+static volatile unsigned * clkMap = 0;
 static char clocksInitialized;
 static char clocksRunning;
 
