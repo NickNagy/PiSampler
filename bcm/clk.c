@@ -91,8 +91,8 @@ int initClock(char clockNum, unsigned frequency, bool mash, char clockSource) {
     clkMap[CLK_CTRL_REG(clockNum)] = (CLK_PASSWD | MASH(mash) | clockSource);
     usleep(10);
     printf("clock %d is set to run @ %d Hz.\n", clockNum, frequency);
-    PRINT_REG("CTL", clkMap[CLK_CTRL_REG(clockNum)]);
-    PRINT_REG("DIV", clkMap[CLK_DIV_REG(clockNum)]);
+    DEBUG_REG("CTL", clkMap[CLK_CTRL_REG(clockNum)]);
+    DEBUG_REG("DIV", clkMap[CLK_DIV_REG(clockNum)]);
     clocksInitialized |= 1 << clockNum;
     if (VERBOSE) {
         printf("Clocks running = %d, clocks initialized = %d\n", clocksRunning, clocksInitialized);
@@ -112,5 +112,6 @@ int startClock(char clockNum) {
     clocksRunning |= (1 << clockNum);
     clkMap[CLK_CTRL_REG(clockNum)] |= (CLK_PASSWD | ENABLE);
     setPinMode(clockNum + 4, 4);
+    printf("Clock started.\n");
     return 0;
 }
