@@ -3,7 +3,7 @@
 static unsigned bcm_base = 0;
 static int fd = 0;
 
-unsigned * initMemMap(unsigned offset, unsigned size) {
+volatile unsigned * initMemMap(unsigned offset, unsigned size) {
     if (offset % BCM_PAGESIZE) {
         printf("ERROR: the address offset must be a multiple of the page size, which is %d bytes.\n", BCM_PAGESIZE);
         return 0;
@@ -17,7 +17,7 @@ unsigned * initMemMap(unsigned offset, unsigned size) {
         if (DEBUG) printf("fd initialized.\n");
         bcm_base = bcm_host_get_peripheral_address();
     }
-    return (unsigned *)mmap(0, size, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_SHARED, fd, bcm_base + offset);
+    return (volatile unsigned *)mmap(0, size, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_SHARED, fd, bcm_base + offset);
 }
 
 void clearMemMap(unsigned * map, unsigned size) {

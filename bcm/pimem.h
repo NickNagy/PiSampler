@@ -8,7 +8,7 @@
 
 #define BCM_PAGESIZE 4096
 
-unsigned * initMemMap(unsigned offset, unsigned size);
+volatile unsigned * initMemMap(unsigned offset, unsigned size);
 void clearMemMap(unsigned * map, unsigned size);
 int getPhysAddrBase();
 

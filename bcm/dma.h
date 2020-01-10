@@ -8,6 +8,8 @@
 #define DMA_BASE_OFFSET  0x007000
 #define DMA_SINGLE_REG_MAPSIZE 0x100
 
+#define VC_BUS_BASE 0xC0000000
+
 #define DMA_CHANNEL(x) x*64
 
 #define DMA_CS_REG(x)        DMA_CHANNEL(x)
@@ -114,6 +116,6 @@ typedef struct DMAControlBlock {
     unsigned reserved[2];
 } DMAControlBlock;
 
-unsigned * initDMAMap(char numDMARegs);
+volatile unsigned * initDMAMap(char numDMARegs);
 
 #endif

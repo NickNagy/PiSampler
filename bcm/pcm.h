@@ -38,6 +38,10 @@
 #define RXFULL  pcmMap[PCM_CTRL_REG] & 0x40000
 #define TXEMPTY pcmMap[PCM_CTRL_REG] & 0x20000
 
+// DMA channels for FIFO
+#define RXDMA 4
+#define TXDMA 5
+
 typedef struct pcmExternInterface {
     char ch1Pos;
     char dataWidth;

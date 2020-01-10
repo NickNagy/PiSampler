@@ -95,10 +95,8 @@ static void initRXTXControlRegisters(pcmExternInterface * ext, bool packedMode) 
 
 
 static void initDMAMode(char dataWidth, unsigned char thresh, bool packedMode) {
-    int rxtxRAM = 0;
-    rxtxRAMptr = &rxtxRAM;
     if (!dmaMap)
-        dmaMap = initDMAMap(2);
+        dmaMap = initDMAMap(TXDMA + 1);
     DMAControlBlock rxCtrlDummy, txCtrlDummy;
 
     // set DMAEN to enable DREQ generation and set RX/TXREQ, RX/TXPANIC
@@ -115,7 +113,7 @@ static void initDMAMode(char dataWidth, unsigned char thresh, bool packedMode) {
     
     // set src and dest as well as DREQ signals
     rxCtrlDummy.srcAddr = fifoPhysAddr;
-    rxCtrlDummy.destAddr = (unsigned)rxtxRAMptr;
+    rxCtrlDummy.destAddr = VC_BUS_BASE;
     rxCtrlDummy.transferInfo = PERMAP(RXPERMAP) | SRC_DREQ;
     txCtrlDummy.srcAddr = rxCtrlDummy.destAddr;
     txCtrlDummy.destAddr = rxCtrlDummy.srcAddr;
@@ -166,8 +164,8 @@ static void initDMAMode(char dataWidth, unsigned char thresh, bool packedMode) {
     }
 
     // set up one DMA channel for RX, one for TX
-    dmaMap[DMA_CONBLK_AD_REG(0)] = (int)rxCtrlBlk;
-    dmaMap[DMA_CONBLK_AD_REG(1)] = (int)txCtrlBlk;
+    dmaMap[DMA_CONBLK_AD_REG(RXDMA)] = (int)rxCtrlBlk;
+    dmaMap[DMA_CONBLK_AD_REG(TXDMA)] = (int)txCtrlBlk;
 
     VERBOSE_MSG("Control blocks loaded into DMA registers.\nDMA mode successfully initialized.\n");
 }
@@ -252,11 +250,13 @@ void startPCM() {
     VERBOSE_MSG("Starting PCM...\n");
     // NOTE: transmit FIFO should be pre-loaded with data
     // start the DMA (which should fill the TX FIFO)
-    dmaMap[DMA_CS_REG(1)] |= 1;
-    dmaMap[DMA_CS_REG(0)] |= 1;
+    dmaMap[DMA_CS_REG(TXDMA)] |= 1;
+    dmaMap[DMA_CS_REG(RXDMA)] |= 1;
     
     DEBUG_REG("Control reg after DMA enabled", pcmMap[PCM_CTRL_REG]);
-    VERBOSE_MSG("Running...\n");
 
     pcmMap[PCM_CTRL_REG] |= RXONTXON;
+    
+    DEBUG_REG("PCM ctrl reg w/ tx and rx on", pcmMap[PCM_CTRL_REG]);
+    VERBOSE_MSG("Running...\n");
 }
