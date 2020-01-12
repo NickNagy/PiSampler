@@ -1,22 +1,22 @@
 #include "pcm.h"
 
-static volatile unsigned * pcmMap = 0; 
-static volatile unsigned * dmaMap = 0;
+static volatile uint32_t * pcmMap = 0; 
+static volatile uint32_t * dmaMap = 0;
 static bool pcmInitialized;
 static bool pcmRunning;
 
-static int syncWait;
+static int32_t syncWait;
 
-static DMAControlBlock * rxCtrlBlk;
-static DMAControlBlock * txCtrlBlk;
-static unsigned * rxtxRAMptr;
+//static DMAControlBlock * rxCtrlBlk;
+//static DMAControlBlock * txCtrlBlk;
+//static unsigned * rxtxRAMptr;
 
 // TODO
 static bool checkFrameAndChannelWidth(pcmExternInterface * ext) {
     return 0;
 }
 
-static bool checkInitParams(pcmExternInterface * ext, unsigned char thresh) {
+static bool checkInitParams(pcmExternInterface * ext, uint32_t thresh) {
     bool error = 0;
     if (!ext->isMasterDevice && !checkFrameAndChannelWidth(ext)) {
         printf("ERROR: incompatible frame lengths and data widths.\n");
@@ -46,7 +46,7 @@ and reading back the value written. This corresponds to ~2 PCM clk cycles
 
 should only need to call once to get an idea of how long to delay the program
 */ 
-static int getSyncDelay() {
+static int32_t getSyncDelay() {
     char sync, notSync;
     struct timeval initTime, endTime;
     // get current sync value
@@ -58,16 +58,16 @@ static int getSyncDelay() {
     gettimeofday(&initTime, NULL);
     while ((pcmMap[PCM_CTRL_REG] >> 24) ^ notSync); // wait until values are the same of each other (this will equate to 0)
     gettimeofday(&endTime, NULL);
-    int usElapsed = ((endTime.tv_sec - initTime.tv_sec)*1000000) + (endTime.tv_usec - initTime.tv_usec);
+    uint32_t usElapsed = ((endTime.tv_sec - initTime.tv_sec)*1000000) + (endTime.tv_usec - initTime.tv_usec);
     DEBUG_VAL("2-cycle PCM clk delay in micros", (usElapsed + (10 - (usElapsed % 10))));
     // round up
     return usElapsed + (10 - (usElapsed % 10));
 }
 
 static void initRXTXControlRegisters(pcmExternInterface * ext, bool packedMode) {
-    char widthBits, widthExtension, ch2Enable;
-    unsigned short channel1Bits, channel2Bits;   
-    int txrxInitBits;
+    uint8_t widthBits, widthExtension, ch2Enable;
+    uint16_t channel1Bits, channel2Bits;   
+    uint32_t txrxInitBits;
 
     ch2Enable = 0;
 
@@ -94,9 +94,9 @@ static void initRXTXControlRegisters(pcmExternInterface * ext, bool packedMode) 
 }
 
 
-static void initDMAMode(char dataWidth, unsigned char thresh, bool packedMode) {
+static void initDMAMode(uint8_t dataWidth, uint8_t thresh, bool packedMode) {
     if (!dmaMap)
-        dmaMap = (volatile unsigned *)initMemMap(DMA_BASE_OFFSET, DMA_MAPSIZE);//initDMAMap(TXDMA + 1);
+        dmaMap = (volatile uint32_t *)initMemMap(DMA_BASE_OFFSET, DMA_MAPSIZE);//initDMAMap(TXDMA + 1);
 
     // set DMAEN to enable DREQ generation and set RX/TXREQ, RX/TXPANIC
     pcmMap[PCM_CTRL_REG] |= (1 << 9); // DMAEN
@@ -106,16 +106,16 @@ static void initDMAMode(char dataWidth, unsigned char thresh, bool packedMode) {
     pcmMap[PCM_DREQ_REG] = ((thresh + 1) << 24) | ((thresh + 1)<<16) | (thresh << 8) | thresh;
     
     // peripheral addresses must be physical
-    int bcm_base = getPhysAddrBase();
-    unsigned fifoPhysAddr = BUS_BASE + PCM_BASE_OFFSET + (PCM_FIFO_REG<<2); // PCM_FIFO_REG is macro defined by int offset, need byte offset
+    //uint32_t bcm_base = getBCMBase();
+    uint32_t fifoPhysAddr = BUS_BASE + PCM_BASE_OFFSET + (PCM_FIFO_REG<<2); // PCM_FIFO_REG is macro defined by int offset, need byte offset
     if (DEBUG) printf("FIFO physical address = %x\n", fifoPhysAddr);
     
     // TODO: verify transfer length line
     // if using packed mode, then a single data transfer is 2-channel, therefore twice the data width
-    unsigned transferLength = packedMode ? dataWidth >> 1 : dataWidth >> 2; // represented in bytes
+    uint32_t transferLength = packedMode ? dataWidth >> 1 : dataWidth >> 2; // represented in bytes
     
-    unsigned rxTransferInfo = (PERMAP(RXPERMAP) | SRC_DREQ | DEST_INC);
-    unsigned txTransferInfo = (PERMAP(TXPERMAP) | DEST_DREQ | SRC_INC);
+    uint32_t rxTransferInfo = (PERMAP(RXPERMAP) | SRC_DREQ | DEST_INC);
+    uint32_t txTransferInfo = (PERMAP(TXPERMAP) | DEST_DREQ | SRC_INC);
 
     void * DMABuffCached = initLockedMem(BCM_PAGESIZE); // <-- want to change this param logic
     void * DMABuff = initUncachedMemView(DMABuffCached, BCM_PAGESIZE);
@@ -123,11 +123,11 @@ static void initDMAMode(char dataWidth, unsigned char thresh, bool packedMode) {
     // 2 control blocks, 1 for rx and 1 for tx
     void * cbPageCached = initLockedMem(2*sizeof(DMAControlBlock));
     void * cbPage = initUncachedMemView(cbPageCached, 0);
-    (DMAControlBlock *)cbPage[0] = initDMAControlBlock(rxTransferInfo, fifoPhysAddr, (unsigned *)virtToUncachedPhys(DMABuff, 0), 3, 0);
-    (DMAControlBlock *)cbPage[1] = initDMAControlBlock(txTransferInfo, (unsigned *)virtToUncachedPhys(DMABuff, 0), fifoPhysAddr, 3, 0);
+    (DMAControlBlock *)cbPage[0] = initDMAControlBlock(rxTransferInfo, fifoPhysAddr, (uint32_t *)virtToUncachedPhys(DMABuff, 0), 3, 0);
+    (DMAControlBlock *)cbPage[1] = initDMAControlBlock(txTransferInfo, (uint32_t *)virtToUncachedPhys(DMABuff, 0), fifoPhysAddr, 3, 0);
     // set control blocks to point to each other
-    (DMAControlBlock *)cbPage[0] -> nextControlBlockAddr = (unsigned)virtToUncachedPhys((void*)((DMAControlBlock *)cbPageCached[1]), 0);
-    (DMAControlBlock *)cbPage[1] -> nextControlBlockAddr = (unsigned)virtToUncachedPhys((void*)((DMAControlBlock *)cbPageCached[0]), 0);
+    (DMAControlBlock *)cbPage[0] -> nextControlBlockAddr = (uint32_t)virtToUncachedPhys((void*)((DMAControlBlock *)cbPageCached[1]), 0);
+    (DMAControlBlock *)cbPage[1] -> nextControlBlockAddr = (uint32_t)virtToUncachedPhys((void*)((DMAControlBlock *)cbPageCached[0]), 0);
     
     // TODO
     //DMAControlBlock * rxCtrlBlk = initDMAControlBlock(rxTransferInfo, fifoPhysAddr, (unsigned *)DMABuffPhys, 3, 0);
@@ -141,7 +141,7 @@ static void initDMAMode(char dataWidth, unsigned char thresh, bool packedMode) {
     
     VERBOSE_MSG("Control block loop(s) set.\n");
     
-    dmaMap[DMA_CONBLK_AD_REG(RXDMA)] = (unsigned)cbPage; //rxCtrlBlk;
+    dmaMap[DMA_CONBLK_AD_REG(RXDMA)] = (uint32_t)cbPage; //rxCtrlBlk;
     //dmaMap[DMA_CONBLK_AD_REG(TXDMA)] = (int)txCtrlBlk;
 
     VERBOSE_MSG("Control blocks loaded into DMA registers.\nDMA mode successfully initialized.\n");
@@ -161,7 +161,7 @@ thresh: threshold for TX and RX registers. Interpretation depends on mode
 packedMode: (for 2 channel data)
     1: use packed mode, where each word to FIFO reg is two 16b signals together, 1 representing each channel
 */
-void initPCM(pcmExternInterface * ext, unsigned char thresh, bool packedMode) {
+void initPCM(pcmExternInterface * ext, uint8_t thresh, bool packedMode) {
     if (!pcmMap) {
         if(!(pcmMap = initMemMap(PCM_BASE_OFFSET, PCM_BASE_MAPSIZE)))
             return;
