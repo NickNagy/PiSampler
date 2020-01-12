@@ -19,6 +19,8 @@
 // bit-wise AND with 64b page info to get bits 0-54
 #define PAGE_INFO_MASK 0x7FFFFFFFFFFFFFFF
 
+static bool openFiles();
+
 uint32_t getBCMBase();
   
 uint32_t ceilToPage(uint32_t size);
