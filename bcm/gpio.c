@@ -1,6 +1,6 @@
 #include "gpio.h"
 
-static volatile unsigned * gpioMap = 0;
+static volatile uint32_t * gpioMap = 0;
 
 // please call this function in your main() before everything else
 void initGPIO() {
@@ -35,10 +35,10 @@ void setPinLow(char n) {
     gpioMap[GPIO_CLR_REG] |= (1 << n);
 }
 
-void LEDTest(char pin, unsigned char numBlinks, unsigned delay_seconds) {
-    unsigned delay_us = 1000000 * delay_seconds;
-    int fsel_reg = pin/10;
-    int pinR = pin % 10;
+void LEDTest(char pin, uint8_t numBlinks, uint32_t delay_seconds) {
+    uint32_t delay_us = 1000000 * delay_seconds;
+    uint8_t fsel_reg = pin/10;
+    uint8_t pinR = pin % 10;
     setPinMode(pin, 1);
     if (VERBOSE) PRINT_REG("FSEL", gpioMap[fsel_reg]);
     for (char i = 0; i < numBlinks; i++) {
