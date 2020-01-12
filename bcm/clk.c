@@ -1,19 +1,19 @@
 #include "clk.h"
 
-static volatile unsigned * clkMap = 0;
+static volatile uint32_t * clkMap = 0;
 static char clocksInitialized;
 static char clocksRunning;
 
 // assumes mash = 0 or mash = 1
-static int setDiv(unsigned targetFreq, unsigned sourceFreq, bool mash) {
+static int32_t setDiv(uint32_t targetFreq, uint32_t sourceFreq, bool mash) {
     float diviFloat = (float)sourceFreq / targetFreq;
-    int divi = (int)diviFloat;
+    uint32_t divi = (uint32_t)diviFloat;
     if (mash) 
-        return (divi << 12) | (int)(4096 * (diviFloat - divi));
+        return (divi << 12) | (uint32_t)(4096 * (diviFloat - divi));
     return divi << 12;
 }
 
-int getSourceFrequency(char src) {
+int32_t getSourceFrequency(char src) {
     switch (src) {
         case OSC: return OSC_FREQ;
         case PLLC: return PLLC_FREQ;
@@ -22,7 +22,7 @@ int getSourceFrequency(char src) {
     }
 }
 
-bool clockIsBusy(int clock_ctrl_reg) {
+bool clockIsBusy(int32_t clock_ctrl_reg) {
     return (((clock_ctrl_reg)>>7) & 1);
 }
 
@@ -70,7 +70,7 @@ void disableAllClocks() {
     clocksInitialized = 0;
 }
 
-int initClock(char clockNum, unsigned frequency, bool mash, char clockSource) {
+bool initClock(char clockNum, uint32_t frequency, bool mash, char clockSource) {
     if (!clkMap)
         clkMap = initMemMap(CLK_CTRL_BASE_OFFSET, CLK_CTRL_BASE_MAPSIZE);
     if (!isValidClockSelection(clockNum)) {
@@ -78,7 +78,7 @@ int initClock(char clockNum, unsigned frequency, bool mash, char clockSource) {
         return 1;
     }
     DEBUG_VAL("clock source", clockSource);
-    int sourceFrequency = getSourceFrequency(clockSource);
+    int32_t sourceFrequency = getSourceFrequency(clockSource);
     DEBUG_VAL("source frequency", sourceFrequency);
     if (!sourceFrequency) {
         printf("Not a valid source.\n");
@@ -100,7 +100,7 @@ int initClock(char clockNum, unsigned frequency, bool mash, char clockSource) {
     return 0;
 }
 
-int startClock(char clockNum) {
+bool startClock(char clockNum) {
     if ((clocksRunning >> clockNum) & 1) {
         printf("Clock %d is already running. You will have to disable it first.\n", clockNum);
         return 1;
