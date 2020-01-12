@@ -108,17 +108,17 @@ srcStride: signed (2's comp) byte increment to apply to
 #define DEBUG_CTRL_BLK(name, cb) if (DEBUG) PRINT_CTRL_BLK(name, cb)*/
 
 typedef struct DMAControlBlock {
-    unsigned transferInfo;
-    unsigned srcAddr;
-    unsigned destAddr;
-    unsigned transferLength;
-    unsigned stride;
-    unsigned nextControlBlockAddr;
-    unsigned reserved[2];
+    uint32_t transferInfo;
+    uint32_t srcAddr;
+    uint32_t destAddr;
+    uint32_t transferLength;
+    uint32_t stride;
+    uint32_t nextControlBlockAddr;
+    uint32_t reserved[2];
 } DMAControlBlock;
 
-volatile unsigned * initDMAMap(char numDMARegs);
+volatile uint32_t * initDMAMap(char numDMARegs);
 
-DMAControlBlock * initDMAControlBlock(unsigned transferInfo, unsigned * srcAddr, unsigned * destAddr, unsigned bytesToTransfer, char arePhysAddr, bool loop);
+DMAControlBlock * initDMAControlBlock(uint32_t transferInfo, uint32_t * srcAddr, uint32_t * destAddr, uint32_t bytesToTransfer, char arePhysAddr, bool loop);
 
 #endif
