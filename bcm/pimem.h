@@ -25,7 +25,7 @@ void * initMemMap(unsigned offset, unsigned size);
 
 void clearMemMap(void * map, unsigned size);
 
-void initLockedMem(void * mem, unsigned size);
+void * initLockedMem(unsigned size);
 
 void clearLockedMem(void * mem, unsigned size);
 
