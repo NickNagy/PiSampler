@@ -43,25 +43,25 @@
 #define TXDMA 5
 
 typedef struct pcmExternInterface {
-    char ch1Pos;
-    char dataWidth;
-    char frameLength;
-    char numChannels;
+    uint8_t ch1Pos;
+    uint8_t dataWidth;
+    uint8_t frameLength;
+    uint8_t numChannels;
     bool inputOnFallingEdge;
     bool isMasterDevice;
 } pcmExternInterface;
 
 static bool checkFrameAndChannelWidth(pcmExternInterface * ext);
 
-static bool checkInitParams(pcmExternInterface * ext, unsigned char thresh);
+static bool checkInitParams(pcmExternInterface * ext, uint8_t thresh);
 
-static int getSyncDelay();
+static int32_t getSyncDelay();
 
 static void initRXTXControlRegisters(pcmExternInterface * ext, bool packedMode);
 
-static void initDMAMode(char dataWidth, unsigned char thresh, bool packedMode);
+static void initDMAMode(uint8_t dataWidth, uint8_t thresh, bool packedMode);
 
-void initPCM(pcmExternInterface * ext, unsigned char thresh, bool packedMode);
+void initPCM(pcmExternInterface * ext, uint8_t thresh, bool packedMode);
 
 void startPCM();
 
