@@ -121,10 +121,21 @@ static void initDMAMode(char dataWidth, unsigned char thresh, bool packedMode) {
     void * DMABuffPhys;
     DMABuffVirt = initUncachedMemView(DMABuffVirt, BCM_PAGESIZE);
     initVirtPhysPage(&DMABuffVirt, &DMABuffPhys);
-
+    
+    // 2 control blocks, 1 for rx and 1 for tx
+    void * cbPageCached = initLockedMem(2*sizeof(DMAControlBlock));
+    void * cbPage = virtToUncachedPhys(cbPageCached, 0);
+    (DMAControlBlock *)cbPage[0] = initDMAControlBlock(rxTransferInfo, fifoPhysAddr, (unsigned *)DMABuffPhys, 3, 0);
+    (DMAControlBlock *)cbPage[1] = initDMAControlBlock(txTransferInfo, (unsigned *)DMABuffPhys, fifoPhysAddr, 3, 0);
+    // set control blocks to point to each other
+    (DMAControlBlock *)cbPage[0] -> nextControlBlockAddr = (unsigned)virtToUncachedPhys((void*)((DMAControlBlock *)cbPageCached[1]), 0);
+    (DMAControlBlock *)cbPage[1] -> nextControlBlockAddr = (unsigned)virtToUncachedPhys((void*)((DMAControlBlock *)cbPageCached[0]), 0);
+    
     // TODO
-    DMAControlBlock * rxCtrlBlk = initDMAControlBlock(rxTransferInfo, fifoPhysAddr, (unsigned *)DMABuffPhys, 3, 1);
-    DMAControlBlock * txCtrlBlk = initDMAControlBlock(txTransferInfo, (unsigned *)DMABuffPhys, fifoPhysAddr, 3, 1);
+    //DMAControlBlock * rxCtrlBlk = initDMAControlBlock(rxTransferInfo, fifoPhysAddr, (unsigned *)DMABuffPhys, 3, 0);
+    //DMAControlBlock * txCtrlBlk = initDMAControlBlock(txTransferInfo, (unsigned *)DMABuffPhys, fifoPhysAddr, 3, 0);
+    
+    //rxCtrlkBlk -> nextControlBlockAddr = 
     
     if (DEBUG) printf("rx ctrl blk address = %p\ntx ctrl blk address = %p\n", rxCtrlBlk, txCtrlBlk);
     
@@ -133,8 +144,8 @@ static void initDMAMode(char dataWidth, unsigned char thresh, bool packedMode) {
     VERBOSE_MSG("Control block loop(s) set.\n");
 
     // set up one DMA channel for RX, one for TX
-    dmaMap[DMA_CONBLK_AD_REG(RXDMA)] = (int)rxCtrlBlk;
-    dmaMap[DMA_CONBLK_AD_REG(TXDMA)] = (int)txCtrlBlk;
+    dmaMap[DMA_CONBLK_AD_REG(RXDMA)] = (unsigned)cbPage; //rxCtrlBlk;
+    //dmaMap[DMA_CONBLK_AD_REG(TXDMA)] = (int)txCtrlBlk;
 
     VERBOSE_MSG("Control blocks loaded into DMA registers.\nDMA mode successfully initialized.\n");
 }
