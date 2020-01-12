@@ -44,10 +44,6 @@ void clearMemMap(void * map, unsigned size) {
     munmap(map, size);
 }
 
-static void * toUncachedAddr(void * virtAddr, bool useDirectUncached) {
-    return useDirectUncached ? (virtAddr | DIRECT_UNCACHED_BASE) : (virtAddr | L2_COHERENT_BASE);
-}
-
 void * initLockedMem(unsigned size) {
     int fd;
     size = ceilToPage(size);
@@ -123,6 +119,10 @@ void * virtToPhys(void * virtAddr) {
 
     pageInfo &= PAGE_INFO_MASK;
     return (void *)(pageNumber*BCM_PAGESIZE + offset);
+}
+
+void * virtToUncachedPhys(void * virtAddr, bool useDirectUncached) {
+    return useDirectUncached ? (virtAddr | DIRECT_UNCACHED_BASE) : (virtAddr | L2_COHERENT_BASE);
 }
 
 void * initUncachedMemView(void * virtAddr, unsigned size) {
