@@ -19,17 +19,17 @@
 // bit-wise AND with 64b page info to get bits 0-54
 #define PAGE_INFO_MASK 0x7FFFFFFFFFFFFFFF
 
-unsigned getBCMBase();
+uint32_t getBCMBase();
   
-unsigned ceilToPage(unsigned size);
+uint32_t ceilToPage(uint32_t size);
 
-void * initMemMap(unsigned offset, unsigned size);
+void * initMemMap(uint32_t offset, uint32_t size);
 
-void clearMemMap(void * map, unsigned size);
+void clearMemMap(void * map, uint32_t size);
 
-void * initLockedMem(unsigned size);
+void * initLockedMem(uint32_t size);
 
-void clearLockedMem(void * mem, unsigned size);
+void clearLockedMem(void * mem, uint32_t size);
 
 void * initVirtPhysPage(void ** virtAddr, void ** physAddr);
 
@@ -37,8 +37,8 @@ void * virtToPhys(void * virtAddr);
 
 void * virtToUncachedPhys(void * virtAddr, bool useDirectUncached);
 
-void * initUncachedMemView(void * virtAddr, unsigned size);
+void * initUncachedMemView(void * virtAddr, uint32_t size);
 
-void clearUncachedMemView(void * mem, unsigned size);
+void clearUncachedMemView(void * mem, uint32_t size);
 
 #endif
