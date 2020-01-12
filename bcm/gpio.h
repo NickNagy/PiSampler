@@ -22,6 +22,6 @@ void setPinHigh(char n);
 
 void setPinLow(char n);
 
-void LEDTest(char pin, unsigned char numBlinks, unsigned delay_seconds);
+void LEDTest(char pin, uint8_t numBlinks, uint32_t delay_seconds);
 
 #endif
