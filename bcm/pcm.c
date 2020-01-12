@@ -117,16 +117,14 @@ static void initDMAMode(char dataWidth, unsigned char thresh, bool packedMode) {
     unsigned rxTransferInfo = (PERMAP(RXPERMAP) | SRC_DREQ | DEST_INC);
     unsigned txTransferInfo = (PERMAP(TXPERMAP) | DEST_DREQ | SRC_INC);
 
-    void * DMABuffVirt;
-    void * DMABuffPhys;
-    DMABuffVirt = initUncachedMemView(DMABuffVirt, BCM_PAGESIZE);
-    initVirtPhysPage(&DMABuffVirt, &DMABuffPhys);
+    void * DMABuffCached = initLockedMem(BCM_PAGESIZE); // <-- want to change this param logic
+    void * DMABuff = initUncachedMemView(DMABuffCached, BCM_PAGESIZE);
     
     // 2 control blocks, 1 for rx and 1 for tx
     void * cbPageCached = initLockedMem(2*sizeof(DMAControlBlock));
-    void * cbPage = virtToUncachedPhys(cbPageCached, 0);
-    (DMAControlBlock *)cbPage[0] = initDMAControlBlock(rxTransferInfo, fifoPhysAddr, (unsigned *)DMABuffPhys, 3, 0);
-    (DMAControlBlock *)cbPage[1] = initDMAControlBlock(txTransferInfo, (unsigned *)DMABuffPhys, fifoPhysAddr, 3, 0);
+    void * cbPage = initUncachedMemView(cbPageCached, 0);
+    (DMAControlBlock *)cbPage[0] = initDMAControlBlock(rxTransferInfo, fifoPhysAddr, (unsigned *)virtToUncachedPhys(DMABuff, 0), 3, 0);
+    (DMAControlBlock *)cbPage[1] = initDMAControlBlock(txTransferInfo, (unsigned *)virtToUncachedPhys(DMABuff, 0), fifoPhysAddr, 3, 0);
     // set control blocks to point to each other
     (DMAControlBlock *)cbPage[0] -> nextControlBlockAddr = (unsigned)virtToUncachedPhys((void*)((DMAControlBlock *)cbPageCached[1]), 0);
     (DMAControlBlock *)cbPage[1] -> nextControlBlockAddr = (unsigned)virtToUncachedPhys((void*)((DMAControlBlock *)cbPageCached[0]), 0);
@@ -142,8 +140,7 @@ static void initDMAMode(char dataWidth, unsigned char thresh, bool packedMode) {
     VERBOSE_MSG("Control blocks set.\n");
     
     VERBOSE_MSG("Control block loop(s) set.\n");
-
-    // set up one DMA channel for RX, one for TX
+    
     dmaMap[DMA_CONBLK_AD_REG(RXDMA)] = (unsigned)cbPage; //rxCtrlBlk;
     //dmaMap[DMA_CONBLK_AD_REG(TXDMA)] = (int)txCtrlBlk;
 
