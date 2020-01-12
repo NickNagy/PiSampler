@@ -14,6 +14,9 @@
 #define PAGEMAP_LENGTH 8
 #define PAGE_SHIFT 12 // <-- need to determine by checking kernel source!
 
+// bit-wise AND with 64b page info to get bits 0-54
+#define PAGE_INFO_MASK 0x7FFFFFFFFFFFFFFF
+
 unsigned getBCMBase();
   
 unsigned ceilToPage(unsigned size);
@@ -27,5 +30,13 @@ void * toUncachedAddr(void * virtAddr, bool useDirectUncached);
 void initLockedMem(void * mem, unsigned size);
 
 void clearLockedMem(void * mem, unsigned size);
+
+void * initVirtPhysPage(void ** virtAddr, void ** physAddr);
+
+void * virtToPhys(void * virtAddr);
+
+void * initUncachedMemView(void * virtAddr, unsigned size);
+
+void clearUncachedMemView(void * mem, unsigned size);
 
 #endif

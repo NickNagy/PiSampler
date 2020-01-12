@@ -6,11 +6,12 @@
 // "DMA directly connected to peripherals. Must be set up to use physical hardware addresses of peripherals"
 
 #define DMA_BASE_OFFSET  0x007000
+#define DMA_MAPSIZE      0x1000
 #define DMA_SINGLE_REG_MAPSIZE 0x100
 
 #define VC_BUS_BASE 0xC0000000
 
-#define DMA_CHANNEL(x) x*64
+#define DMA_CHANNEL(x) x*0x100
 
 #define DMA_CS_REG(x)        DMA_CHANNEL(x)
 #define DMA_CONBLK_AD_REG(x) DMA_CHANNEL(x) + 1
@@ -23,8 +24,8 @@
 #define DMA_DEBUG_REG(x)     DMA_CHANNEL(x) + 8
 
 // Control status register bits
-#define RESET 1<<31
-#define ABORT 1<<30
+#define DMA_RESET 1<<31
+#define DMA_ABORT 1<<30
 
 /* More unadressed control status bits to handle...
 
@@ -117,5 +118,7 @@ typedef struct DMAControlBlock {
 } DMAControlBlock;
 
 volatile unsigned * initDMAMap(char numDMARegs);
+
+DMAControlBlock * initDMAControlBlock(unsigned transferInfo, unsigned * srcAddr, unsigned * destAddr, unsigned bytesToTransfer, char arePhysAddr, bool loop);
 
 #endif

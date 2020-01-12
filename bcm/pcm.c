@@ -96,8 +96,7 @@ static void initRXTXControlRegisters(pcmExternInterface * ext, bool packedMode) 
 
 static void initDMAMode(char dataWidth, unsigned char thresh, bool packedMode) {
     if (!dmaMap)
-        dmaMap = initDMAMap(TXDMA + 1);
-    DMAControlBlock rxCtrlDummy, txCtrlDummy;
+        dmaMap = (volatile unsigned *)initMemMap(DMA_BASE_OFFSET, DMA_MAPSIZE);//initDMAMap(TXDMA + 1);
 
     // set DMAEN to enable DREQ generation and set RX/TXREQ, RX/TXPANIC
     pcmMap[PCM_CTRL_REG] |= (1 << 9); // DMAEN
@@ -111,57 +110,27 @@ static void initDMAMode(char dataWidth, unsigned char thresh, bool packedMode) {
     unsigned fifoPhysAddr = bcm_base + PCM_BASE_OFFSET + (PCM_FIFO_REG<<2);
     if (DEBUG) printf("FIFO physical address = %x\n", fifoPhysAddr);
     
-    // set src and dest as well as DREQ signals
-    rxCtrlDummy.srcAddr = fifoPhysAddr;
-    rxCtrlDummy.destAddr = VC_BUS_BASE;
-    rxCtrlDummy.transferInfo = PERMAP(RXPERMAP) | SRC_DREQ;
-    txCtrlDummy.srcAddr = rxCtrlDummy.destAddr;
-    txCtrlDummy.destAddr = rxCtrlDummy.srcAddr;
-    txCtrlDummy.transferInfo = PERMAP(TXPERMAP) | DEST_DREQ;
-    
     // TODO: verify transfer length line
     // if using packed mode, then a single data transfer is 2-channel, therefore twice the data width
-    rxCtrlDummy.transferLength = packedMode ? dataWidth >> 1 : dataWidth >> 2; // represented in bytes
-    txCtrlDummy.transferLength = rxCtrlDummy.transferLength;
+    unsigned transferLength = packedMode ? dataWidth >> 1 : dataWidth >> 2; // represented in bytes
     
-    // initialize ptrs, then 256b-align if necessary
-    rxCtrlBlk = &rxCtrlDummy;
-    txCtrlBlk = &txCtrlDummy;
-    rxCtrlBlk = (DMAControlBlock*)getAlignedPointer((void*)rxCtrlBlk, sizeof(*rxCtrlBlk));
-    txCtrlBlk = (DMAControlBlock*)getAlignedPointer((void*)txCtrlBlk, sizeof(*txCtrlBlk));
-    *rxCtrlBlk = rxCtrlDummy;
-    *txCtrlBlk = txCtrlDummy;
-    
-    rxCtrlBlk -> stride = 0;
-    rxCtrlBlk -> reserved[1] = 0;
-    rxCtrlBlk -> reserved[0] = 0;
-    txCtrlBlk -> stride = 0;
-    txCtrlBlk -> reserved[1] = 0;
-    txCtrlBlk -> reserved[0] = 0;
+    unsigned rxTransferInfo = (PERMAP(RXPERMAP) | SRC_DREQ | DEST_INC);
+    unsigned txTransferInfo = (PERMAP(TXPERMAP) | DEST_DREQ | SRC_INC);
+
+    void * DMABuffVirt;
+    void * DMABuffPhys;
+    DMABuffVirt = initUncachedMemView(DMABuffVirt, BCM_PAGESIZE);
+    initVirtPhysPage(&DMABuffVirt, &DMABuffPhys);
+
+    // TODO
+    DMAControlBlock * rxCtrlBlk = initDMAControlBlock(rxTransferInfo, fifoPhysAddr, (unsigned *)DMABuffPhys, 3, 1);
+    DMAControlBlock * txCtrlBlk = initDMAControlBlock(txTransferInfo, (unsigned *)DMABuffPhys, fifoPhysAddr, 3, 1);
     
     if (DEBUG) printf("rx ctrl blk address = %p\ntx ctrl blk address = %p\n", rxCtrlBlk, txCtrlBlk);
     
     VERBOSE_MSG("Control blocks set.\n");
     
-    // set both to run infinitely by fetching itself after operation complete
-    //rxCtrlBlk -> nextControlBlockAddr = (unsigned)rxCtrlBlk;
-    //txCtrlBlk -> nextControlBlockAddr = (unsigned)txCtrlBlk;
-
-    rxCtrlBlk -> nextControlBlockAddr = (unsigned)rxCtrlBlk;
-    txCtrlBlk -> nextControlBlockAddr = (unsigned)txCtrlBlk;
-
-    DEBUG_VAL("size of control block", sizeof(*rxCtrlBlk));
-    
     VERBOSE_MSG("Control block loop(s) set.\n");
-    
-    // doesn't work ... could try using debug reg in DMA
-    /*DEBUG_CTRL_BLK("rx ctrl block", rxCtrlBlk);
-    DEBUG_CTRL_BLK("tx ctrl block", txCtrlBlk);*/
-    if (DEBUG) {
-        printf("RX:\n\ttransfer info = %x\n\tsrc address = %x\n\tdest address = %x\n\ttransfer length = %d\n\tstride = %d\n\tnext blk = %x\n\treserved[1] = %d\n\treserved[0] = %d\n",
-                rxCtrlBlk -> transferInfo, rxCtrlBlk -> srcAddr, rxCtrlBlk -> destAddr, rxCtrlBlk -> transferLength, rxCtrlBlk -> stride, rxCtrlBlk -> nextControlBlockAddr, rxCtrlBlk->reserved[1],
-                rxCtrlBlk -> reserved[0]);
-    }
 
     // set up one DMA channel for RX, one for TX
     dmaMap[DMA_CONBLK_AD_REG(RXDMA)] = (int)rxCtrlBlk;
