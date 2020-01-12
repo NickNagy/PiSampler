@@ -36,19 +36,19 @@
 #define PLLC 5
 #define PLLD 6
 
-static int setDiv(unsigned targetFreq, unsigned sourceFreq, bool mash);
+static int32_t setDiv(uint32_t targetFreq, uint32_t sourceFreq, bool mash);
 
-bool clockIsBusy(int clock_ctrl_reg);
+bool clockIsBusy(int32_t clock_ctrl_reg);
 
 bool isValidClockSelection(char clockNum);
 
-int getSourceFrequency(char src);
+int32_t getSourceFrequency(char src);
 
 void disableClock(char clockNum);
 
-int startClock(char clockNum);
+bool startClock(char clockNum);
 
-int initClock(char clockNum, unsigned frequency, bool mash, char clockSource);
+bool initClock(char clockNum, uint32_t frequency, bool mash, char clockSource);
 
 void disableAllClocks();
 
