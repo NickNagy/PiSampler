@@ -25,8 +25,6 @@ void * initMemMap(unsigned offset, unsigned size);
 
 void clearMemMap(void * map, unsigned size);
 
-void * toUncachedAddr(void * virtAddr, bool useDirectUncached);
-
 void initLockedMem(void * mem, unsigned size);
 
 void clearLockedMem(void * mem, unsigned size);
@@ -34,6 +32,8 @@ void clearLockedMem(void * mem, unsigned size);
 void * initVirtPhysPage(void ** virtAddr, void ** physAddr);
 
 void * virtToPhys(void * virtAddr);
+
+void * virtToUncachedPhys(void * virtAddr, bool useDirectUncached);
 
 void * initUncachedMemView(void * virtAddr, unsigned size);
 
