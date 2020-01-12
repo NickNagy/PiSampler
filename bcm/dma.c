@@ -53,8 +53,7 @@ DMAControlBlock * initDMAControlBlock(uint32_t transferInfo, uint32_t * srcAddr,
     cb -> destAddr = (uint32_t)destAddr;
     cb -> transferLength = bytesToTransfer;
     cb -> stride = 0;
-    cb -> reserved[1] = 0;
-    cb -> reserved[0] = 0;
+    cb -> reserved = 0; 
 
     if (loop) {
         cb -> nextControlBlockAddr = cb; // TODO: physical address of itself, or virtual??
