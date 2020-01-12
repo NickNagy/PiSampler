@@ -114,7 +114,7 @@ typedef struct DMAControlBlock {
     uint32_t transferLength;
     uint32_t stride;
     uint32_t nextControlBlockAddr;
-    uint32_t reserved[2];
+    uint64_t reserved;
 } DMAControlBlock;
 
 volatile uint32_t * initDMAMap(char numDMARegs);
