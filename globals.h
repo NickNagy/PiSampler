@@ -2,6 +2,7 @@
 #define GLOBALS_H
 
 #include <stdio.h>
+#include <stdint.h> 
 #include <unistd.h>
 #include <sys/time.h>
 #include <stdbool.h>
@@ -21,9 +22,9 @@
 #define COND_PRINT_VAL(cond, name, val) if (cond) PRINT_VAL(name, val);
 #define DEBUG_VAL(name, val) COND_PRINT_VAL(DEBUG, name, val)
 
-void * getAlignedPointer(void * ptr, int byteAlignment);
+void * getAlignedPointer(void * ptr, int32_t byteAlignment);
 
 // from pigpio.c --> https://github.com/joan2937/pigpio/blob/master/pigpio.c
-unsigned gpioDelay(unsigned micros);
+unsigned gpioDelay(uint32_t micros);
 
 #endif
