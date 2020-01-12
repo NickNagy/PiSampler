@@ -2,10 +2,10 @@
 
 static void * virtPage;
 static void * physPage;
-static unsigned numControlBlocks;
+//static uint32_t numControlBlocks;
 
-volatile unsigned * initDMAMap(char numDMARegs) {
-    return (volatile unsigned *)initMemMap(DMA_BASE_OFFSET, numDMARegs * (unsigned)DMA_SINGLE_REG_MAPSIZE);
+volatile uint32_t * initDMAMap(char numDMARegs) {
+    return (volatile uint32_t *)initMemMap(DMA_BASE_OFFSET, numDMARegs * (uint32_t)DMA_SINGLE_REG_MAPSIZE);
 }
 
 /*
@@ -23,34 +23,34 @@ loop:
     the returned DMAControlBlock * should point back to itself
 
 */
-DMAControlBlock * initDMAControlBlock(unsigned transferInfo, unsigned * srcAddr, unsigned * destAddr, unsigned bytesToTransfer, char arePhysAddr, bool loop) {
+DMAControlBlock * initDMAControlBlock(uint32_t transferInfo, uint32_t * srcAddr, uint32_t * destAddr, uint32_t bytesToTransfer, char arePhysAddr, bool loop) {
     if (!virtPage) {
         initVirtPhysPage(&virtPage, &physPage);
     }
     switch(arePhysAddr) {
         case 1: {
-            srcAddr = (unsigned *)virtToPhys(srcAddr);
+            srcAddr = (uint32_t *)virtToPhys(srcAddr);
             break;
         }
         case 2: {
-            destAddr = (unsigned *)virtToPhys(destAddr);
+            destAddr = (uint32_t *)virtToPhys(destAddr);
             break;
         }
         case 3: {
-            srcAddr = (unsigned *)virtToPhys(srcAddr);
-            destAddr = (unsigned *)virtToPhys(destAddr);
+            srcAddr = (uint32_t *)virtToPhys(srcAddr);
+            destAddr = (uint32_t *)virtToPhys(destAddr);
             break;
         }
         default: break;
     }
 
-    DMAControlBlock * cb = (DMAControlBlock *)((char *)virtPage + numControlBlocks*sizeof(DMAControlBlock)); //don't want to overwrite control blocks
-    numControlBlocks++;
-    printf("control block initialized at virtual address %p\n", cb);
+    DMAControlBlock * cb;// = (DMAControlBlock *)((char *)virtPage + numControlBlocks*sizeof(DMAControlBlock)); //don't want to overwrite control blocks
+    //numControlBlocks++;
+    //printf("control block initialized at virtual address %p\n", cb);
 
     cb -> transferInfo = transferInfo; // TODO
-    cb -> srcAddr = (unsigned)srcAddr;
-    cb -> destAddr = (unsigned)destAddr;
+    cb -> srcAddr = (uint32_t)srcAddr;
+    cb -> destAddr = (uint32_t)destAddr;
     cb -> transferLength = bytesToTransfer;
     cb -> stride = 0;
     cb -> reserved[1] = 0;
