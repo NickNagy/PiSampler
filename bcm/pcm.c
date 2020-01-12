@@ -107,7 +107,7 @@ static void initDMAMode(char dataWidth, unsigned char thresh, bool packedMode) {
     
     // peripheral addresses must be physical
     int bcm_base = getPhysAddrBase();
-    unsigned fifoPhysAddr = bcm_base + PCM_BASE_OFFSET + (PCM_FIFO_REG<<2);
+    unsigned fifoPhysAddr = BUS_BASE + PCM_BASE_OFFSET + (PCM_FIFO_REG<<2); // PCM_FIFO_REG is macro defined by int offset, need byte offset
     if (DEBUG) printf("FIFO physical address = %x\n", fifoPhysAddr);
     
     // TODO: verify transfer length line
