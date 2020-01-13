@@ -11,7 +11,7 @@
 
 #define VC_BUS_BASE 0xC0000000
 
-#define DMA_CHANNEL(x) x*0x100
+#define DMA_CHANNEL(x) x*64
 
 #define DMA_CS_REG(x)        DMA_CHANNEL(x)
 #define DMA_CONBLK_AD_REG(x) DMA_CHANNEL(x) + 1
@@ -23,9 +23,16 @@
 #define DMA_NEXTCONBK_REG(x) DMA_CHANNEL(x) + 7
 #define DMA_DEBUG_REG(x)     DMA_CHANNEL(x) + 8
 
+#define DMA_GLOBAL_ENABLE_REG   0xFF0>>2
+
 // Control status register bits
 #define DMA_RESET 1<<31
 #define DMA_ABORT 1<<30
+
+// Debug register bits
+#define DMA_READ_ERROR 4
+#define DMA_FIFO_ERROR 2
+#define DMA_READ_LAST_NOT_SET_ERROR 1
 
 /* More unadressed control status bits to handle...
 
