@@ -19,26 +19,24 @@ arePhysAddr:
     1 = srcAddr is a virtual address, destAddr is a physical address
     2 = srcAddr is a virtual physical, destAddr is a virtual address
     3 = both srcAddr and destAddr are physical addresses
-loop:
-    the returned DMAControlBlock * should point back to itself
 
 */
-DMAControlBlock * initDMAControlBlock(uint32_t transferInfo, uint32_t * srcAddr, uint32_t * destAddr, uint32_t bytesToTransfer, char arePhysAddr, bool loop) {
-    if (!virtPage) {
-        initVirtPhysPage(&virtPage, &physPage);
-    }
+DMAControlBlock * initDMAControlBlock(uint32_t transferInfo, uint32_t srcAddr, uint32_t destAddr, uint32_t bytesToTransfer, char arePhysAddr) {
+    //if (!virtPage) {
+    //    initVirtPhysPage(&virtPage, &physPage);
+    //}
     switch(arePhysAddr) {
         case 1: {
-            srcAddr = (uint32_t *)virtToPhys(srcAddr);
+            srcAddr = (uint32_t)virtToPhys((void *)srcAddr);
             break;
         }
         case 2: {
-            destAddr = (uint32_t *)virtToPhys(destAddr);
+            destAddr = (uint32_t)virtToPhys((void *)destAddr);
             break;
         }
         case 3: {
-            srcAddr = (uint32_t *)virtToPhys(srcAddr);
-            destAddr = (uint32_t *)virtToPhys(destAddr);
+            srcAddr = (uint32_t)virtToPhys((void *)srcAddr);
+            destAddr = (uint32_t)virtToPhys((void *)destAddr);
             break;
         }
         default: break;
@@ -49,17 +47,11 @@ DMAControlBlock * initDMAControlBlock(uint32_t transferInfo, uint32_t * srcAddr,
     //printf("control block initialized at virtual address %p\n", cb);
 
     cb -> transferInfo = transferInfo; // TODO
-    cb -> srcAddr = (uint32_t)srcAddr;
-    cb -> destAddr = (uint32_t)destAddr;
+    cb -> srcAddr = srcAddr;
+    cb -> destAddr = destAddr;
     cb -> transferLength = bytesToTransfer;
     cb -> stride = 0;
     cb -> reserved = 0; 
-
-    if (loop) {
-        cb -> nextControlBlockAddr = cb; // TODO: physical address of itself, or virtual??
-    } else {
-        cb -> nextControlBlockAddr = 0; // will terminate after operation is finished
-    }
 
     return cb;
 }

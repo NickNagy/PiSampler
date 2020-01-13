@@ -16,7 +16,7 @@ static bool checkFrameAndChannelWidth(pcmExternInterface * ext) {
     return 0;
 }
 
-static bool checkInitParams(pcmExternInterface * ext, uint32_t thresh) {
+static bool checkInitParams(pcmExternInterface * ext, uint8_t thresh) {
     bool error = 0;
     if (!ext->isMasterDevice && !checkFrameAndChannelWidth(ext)) {
         printf("ERROR: incompatible frame lengths and data widths.\n");
@@ -118,31 +118,22 @@ static void initDMAMode(uint8_t dataWidth, uint8_t thresh, bool packedMode) {
     uint32_t txTransferInfo = (PERMAP(TXPERMAP) | DEST_DREQ | SRC_INC);
 
     void * DMABuffCached = initLockedMem(BCM_PAGESIZE); // <-- want to change this param logic
-    void * DMABuff = initUncachedMemView(DMABuffCached, BCM_PAGESIZE);
+    void * DMABuff = initUncachedMemView(DMABuffCached, BCM_PAGESIZE, 0);
     
     // 2 control blocks, 1 for rx and 1 for tx
-    void * cbPageCached = initLockedMem(2*sizeof(DMAControlBlock));
-    void * cbPage = initUncachedMemView(cbPageCached, 0);
-    (DMAControlBlock *)cbPage[0] = initDMAControlBlock(rxTransferInfo, fifoPhysAddr, (uint32_t *)virtToUncachedPhys(DMABuff, 0), 3, 0);
-    (DMAControlBlock *)cbPage[1] = initDMAControlBlock(txTransferInfo, (uint32_t *)virtToUncachedPhys(DMABuff, 0), fifoPhysAddr, 3, 0);
+    DMAControlBlock ** cbPageCached = (DMAControlBlock **)initLockedMem(2*sizeof(DMAControlBlock));
+    DMAControlBlock ** cbPage = (DMAControlBlock **)initUncachedMemView((void *)cbPageCached, BCM_PAGESIZE, 0);
+    cbPage[0] = initDMAControlBlock(rxTransferInfo, fifoPhysAddr, (uint32_t)virtToUncachedPhys(DMABuff, 0), transferLength, 3);
+    cbPage[1] = initDMAControlBlock(txTransferInfo, (uint32_t)virtToUncachedPhys(DMABuff, 0), fifoPhysAddr, transferLength, 3);
     // set control blocks to point to each other
-    (DMAControlBlock *)cbPage[0] -> nextControlBlockAddr = (uint32_t)virtToUncachedPhys((void*)((DMAControlBlock *)cbPageCached[1]), 0);
-    (DMAControlBlock *)cbPage[1] -> nextControlBlockAddr = (uint32_t)virtToUncachedPhys((void*)((DMAControlBlock *)cbPageCached[0]), 0);
-    
-    // TODO
-    //DMAControlBlock * rxCtrlBlk = initDMAControlBlock(rxTransferInfo, fifoPhysAddr, (unsigned *)DMABuffPhys, 3, 0);
-    //DMAControlBlock * txCtrlBlk = initDMAControlBlock(txTransferInfo, (unsigned *)DMABuffPhys, fifoPhysAddr, 3, 0);
-    
-    //rxCtrlkBlk -> nextControlBlockAddr = 
-    
-    if (DEBUG) printf("rx ctrl blk address = %p\ntx ctrl blk address = %p\n", rxCtrlBlk, txCtrlBlk);
+    cbPage[0] -> nextControlBlockAddr = (uint32_t)virtToUncachedPhys((void*)(cbPageCached[1]), 0);
+    cbPage[1] -> nextControlBlockAddr = (uint32_t)virtToUncachedPhys((void*)(cbPageCached[0]), 0);
     
     VERBOSE_MSG("Control blocks set.\n");
     
     VERBOSE_MSG("Control block loop(s) set.\n");
     
-    dmaMap[DMA_CONBLK_AD_REG(RXDMA)] = (uint32_t)cbPage; //rxCtrlBlk;
-    //dmaMap[DMA_CONBLK_AD_REG(TXDMA)] = (int)txCtrlBlk;
+    dmaMap[DMA_CONBLK_AD_REG(RXDMA)] = (uint32_t)cbPage;
 
     VERBOSE_MSG("Control blocks loaded into DMA registers.\nDMA mode successfully initialized.\n");
 }

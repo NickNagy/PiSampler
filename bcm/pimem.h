@@ -23,7 +23,7 @@ static bool openFiles();
 
 uint32_t getBCMBase();
   
-uint32_t ceilToPage(uint32_t size);
+static uint32_t ceilToPage(uint32_t size);
 
 void * initMemMap(uint32_t offset, uint32_t size);
 
@@ -33,13 +33,13 @@ void * initLockedMem(uint32_t size);
 
 void clearLockedMem(void * mem, uint32_t size);
 
-void * initVirtPhysPage(void ** virtAddr, void ** physAddr);
+void initVirtPhysPage(void ** virtAddr, void ** physAddr);
 
-void * virtToPhys(void * virtAddr);
+uintptr_t virtToPhys(void * virtAddr);
 
-void * virtToUncachedPhys(void * virtAddr, bool useDirectUncached);
+uintptr_t virtToUncachedPhys(void * virtAddr, bool useDirectUncached);
 
-void * initUncachedMemView(void * virtAddr, uint32_t size);
+void * initUncachedMemView(void * virtAddr, uint32_t size, bool useDirectUncached);
 
 void clearUncachedMemView(void * mem, uint32_t size);
 

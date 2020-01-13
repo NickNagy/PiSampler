@@ -16,7 +16,7 @@ static bool openFiles() {
         }
     }
     if (!pagemapfd) {
-        if((pagemapfd = open("/proc/self/pagemap")) < 0) {
+        if((pagemapfd = open("/proc/self/pagemap", O_RDONLY)) < 0) {
             printf("Failure to access /proc/self/pagemap.\n");
             return 1;
         }
@@ -101,9 +101,9 @@ void initVirtPhysPage(void ** virtAddr, void ** physAddr) {
     memset(*virtAddr, 0, BCM_PAGESIZE);
 
     // (*virtAddr/BCM_PAGESIZE * PAGEMAP_LENGTH) == offset of pageInfo, so seek to that location in pagemapfd
-    if ((lseek(pagemapfd, (uint64_t)*virtAddr/BCM_PAGESIZE * PAGEMAP_LENGTH, SEEK_SET)) < 0) {
+    if ((lseek(pagemapfd, ((size_t)*virtAddr)/BCM_PAGESIZE * PAGEMAP_LENGTH, SEEK_SET)) < 0) {
         printf("Failure to seek page map to proper location.\n");
-        return 0;
+        return;
     }
 
     // we are concerned about bits 0 - 54 --> bit 55 is a flag
@@ -111,21 +111,21 @@ void initVirtPhysPage(void ** virtAddr, void ** physAddr) {
     pageInfo &= PAGE_INFO_MASK;
     
     // update *physAddr to point to the physical address corresponding to *virtAddr, given by (pageInfo*BCM_PAGESIZE)
-    *physAddr = (void*)(pageInfo*BCM_PAGESIZE);
+    *physAddr = (void*)(size_t)(pageInfo*BCM_PAGESIZE);
     printf("Virtual page based at %p maps to physical address base %p\n", *virtAddr, *physAddr);
 }
 
 /*
 returns a pointer to the corresponding physical address of *virtAddr
 */
-void * virtToPhys(void * virtAddr) {
+uintptr_t virtToPhys(void * virtAddr) {
     if (!pagemapfd) {
         if (openFiles()) return 0;
     }
     
     // start w/ same procedure as initVirtPhysPage(). Seek to the region of pagemapfd that will give us the pageInfo
     
-    uint32_t * pageNumber = (uint32_t *) virtAddr / BCM_PAGESIZE;
+    uintptr_t pageNumber = ((uintptr_t) virtAddr) / BCM_PAGESIZE;
     uint32_t offset = (uint32_t) virtAddr % BCM_PAGESIZE;
 
     uint64_t pageInfo;
@@ -142,7 +142,7 @@ void * virtToPhys(void * virtAddr) {
 
     // we are concerned about bits 0 - 54 --> bit 55 is a flag
     pageInfo &= PAGE_INFO_MASK;
-    return (void *)(pageNumber*BCM_PAGESIZE + offset);
+    return (uintptr_t)(pageInfo*BCM_PAGESIZE + offset);
 }
 
 /*
@@ -150,7 +150,7 @@ returns a corresponding physical address ptr for virtAddr that bypasses L1 cache
 if useDirectUncached == 0, will return an address that also bypasses L2 (direct uncached memory)
 if useDirectUncached == 1, will return an address that is L2 cache-coherent
 */
-void * virtToUncachedPhys(void * virtAddr, bool useDirectUncached) {
+uintptr_t virtToUncachedPhys(void * virtAddr, bool useDirectUncached) {
     return useDirectUncached ? (virtToPhys(virtAddr) | DIRECT_UNCACHED_BASE) : (virtToPhys(virtAddr) | L2_COHERENT_BASE);
 }
 
@@ -175,7 +175,7 @@ void * initUncachedMemView(void * virtAddr, uint32_t size, bool useDirectUncache
 
     // iterate page by page of uncached mem space, verifying that mem is contiguous, and mapping/offsetting to uncached addresses
     for (int offset = 0; offset < size; offset += BCM_PAGESIZE) {
-        void * mappedPage = mmap(mem + offset, BCM_PAGESIZE, PROT_WRITE|PROT_READ, MAP_SHARED|MAP_FIXED|MAP_NORESERVE, memfd, virtToUncachedPhys(virtAddr + offset, useDirectUncached));
+        void * mappedPage = mmap(mem + offset, BCM_PAGESIZE, PROT_WRITE|PROT_READ, MAP_SHARED|MAP_FIXED|MAP_NORESERVE, memfd, (uint32_t)virtToUncachedPhys(virtAddr + offset, useDirectUncached));
         if (mappedPage != mem + offset) {
             printf("Failed to map contiguous uncached memory.\n");
             return 0;

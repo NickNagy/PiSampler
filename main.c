@@ -8,10 +8,10 @@
 int main(int agrc, char ** argv) {
 	volatile unsigned * dmaMap = initMemMap(DMA_BASE_OFFSET, DMA_MAPSIZE);
 
-	void * virtSrcPage, physSrcPage;
+	void * virtSrcPage, *physSrcPage;
 	initVirtPhysPage(&virtSrcPage, &physSrcPage);
 
-	void * virtDestPage, physDestPage;
+	void * virtDestPage, *physDestPage;
 	initVirtPhysPage(&virtDestPage, &physDestPage);
 
 	char *srcArr = (char *)virtSrcPage;
@@ -31,24 +31,24 @@ int main(int agrc, char ** argv) {
 
 	unsigned transferInfo = SRC_INC | DEST_INC;
 	
-	DMAControlBlock * cb = initDMAControlBlock(transferInfo, physSrcPage, physDestPage, 13, 3, 0);
+	DMAControlBlock * cb = initDMAControlBlock(transferInfo, (uint32_t)physSrcPage, (uint32_t)physDestPage, 13, 3);
 
 	dmaMap[DMA_CS_REG(4)] = DMA_RESET;
 	sleep(1);
 
 	// need to fix my initDMAControlBlock func --> we need the physical address!
 	// alternatively, can just to VirtToPhys, but probably not as efficient
-	dmaMap[DMA_CONBLK_AD_REG(4)] = (unsigned)virtToPhys((void*)cb); // temporarily...
+	dmaMap[DMA_CONBLK_AD_REG(4)] = (uint32_t)virtToPhys((void*)cb); // temporarily...
 	dmaMap[DMA_CS_REG(4)] = 1; // activate DMA channel...
 
 	sleep(1);
 
 	printf("Received @ %p:", virtDestPage);
 	for (char i = 0; i < 13; i++) {
-		printf("%s", (char*)virtDestPage[i]);
+		printf("%s", ((char*)virtDestPage)[i]);
 	}
 
-	clearVirtPhysPage(virtSrcPage, BCM_PAGESIZE);
-	clearVirtPhysPage(virtDestPage, BCM_PAGESIZE);
-	munmap(dmaMap, DMA_MAPSIZE);
+	//clearVirtPhysPage(virtSrcPage, BCM_PAGESIZE);
+	//clearVirtPhysPage(virtDestPage, BCM_PAGESIZE);
+	munmap((void *)dmaMap, DMA_MAPSIZE);
 }
