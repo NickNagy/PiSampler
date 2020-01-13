@@ -16,7 +16,7 @@ static bool openFiles() {
         }
     }
     if (!pagemapfd) {
-        if((pagemapfd = open("/proc/self/pagemap", O_RDONLY)) < 0) {
+        if((pagemapfd = open("/proc/self/pagemap", 'r')) < 0) {
             printf("Failure to access /proc/self/pagemap.\n");
             return 1;
         }
@@ -107,8 +107,8 @@ void initVirtPhysPage(void ** virtAddr, void ** physAddr) {
     }
 
     // we are concerned about bits 0 - 54 --> bit 55 is a flag
-    read(pagemapfd, &pageInfo, PAGEMAP_LENGTH - 1);
-    pageInfo &= PAGE_INFO_MASK;
+    read(pagemapfd, &pageInfo, PAGEMAP_LENGTH); //- 1);
+    //pageInfo &= PAGE_INFO_MASK;
     
     // update *physAddr to point to the physical address corresponding to *virtAddr, given by (pageInfo*BCM_PAGESIZE)
     *physAddr = (void*)(size_t)(pageInfo*BCM_PAGESIZE);

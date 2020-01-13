@@ -31,14 +31,29 @@ int main(int agrc, char ** argv) {
 
 	unsigned transferInfo = SRC_INC | DEST_INC;
 	
-	DMAControlBlock * cb = initDMAControlBlock(transferInfo, (uint32_t)physSrcPage, (uint32_t)physDestPage, 13, 3);
+	void * virtCBPage, *physCBPage;
+	initVirtPhysPage(&virtCBPage, &physCBPage);
+	
+	DMAControlBlock * cb = (DMAControlBlock *)virtCBPage;
+	cb -> transferInfo = transferInfo;
+	cb -> srcAddr = (uint32_t)physSrcPage;
+	cb -> destAddr = (uint32_t)physDestPage;
+	cb -> transferLength = 13;
+	cb -> stride = 0;
+	cb -> reserved = 0;
+	cb -> nextControlBlockAddr = 0;
+	
+	/* initDMAControlBlock() may cause issues by re-defining ptr addresses */
+	//(DMAControlBlock *)virtCBPage = initDMAControlBlock(transferInfo, (uint32_t)physSrcPage, (uint32_t)physDestPage, 13, 3);
+	
+	//DMAControlBlock * cb = initDMAControlBlock(transferInfo, (uint32_t)physSrcPage, (uint32_t)physDestPage, 13, 3);
 
 	dmaMap[DMA_CS_REG(4)] = DMA_RESET;
 	sleep(1);
 
 	// need to fix my initDMAControlBlock func --> we need the physical address!
 	// alternatively, can just to VirtToPhys, but probably not as efficient
-	dmaMap[DMA_CONBLK_AD_REG(4)] = (uint32_t)virtToPhys((void*)cb); // temporarily...
+	dmaMap[DMA_CONBLK_AD_REG(4)] = (uint32_t)physCBPage; // temporarily...
 	dmaMap[DMA_CS_REG(4)] = 1; // activate DMA channel...
 
 	sleep(1);
@@ -47,6 +62,7 @@ int main(int agrc, char ** argv) {
 	for (char i = 0; i < 13; i++) {
 		printf("%s", ((char*)virtDestPage)[i]);
 	}
+	printf("\n");
 
 	//clearVirtPhysPage(virtSrcPage, BCM_PAGESIZE);
 	//clearVirtPhysPage(virtDestPage, BCM_PAGESIZE);
