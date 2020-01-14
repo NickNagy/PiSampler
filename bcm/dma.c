@@ -4,8 +4,12 @@ static void * virtPage;
 static void * physPage;
 //static uint32_t numControlBlocks;
 
+/* 
+NOTE: I can no longer vouch for this function --> I would call initMemMap directly and use DMA_MAPSIZE for size,
+as this will also load your DEBUG and global ENABLE regs
+*/
 volatile uint32_t * initDMAMap(char numDMARegs) {
-    return (volatile uint32_t *)initMemMap(DMA_BASE_OFFSET, numDMARegs * (uint32_t)DMA_SINGLE_REG_MAPSIZE);
+    return initMemMap(DMA_BASE_OFFSET, numDMARegs * (uint32_t)DMA_SINGLE_REG_MAPSIZE);
 }
 
 /*
@@ -20,6 +24,7 @@ arePhysAddr:
     2 = srcAddr is a virtual physical, destAddr is a virtual address
     3 = both srcAddr and destAddr are physical addresses
 
+WARNING: this function should not be used if the address of the returned pointer is sensitive!
 */
 DMAControlBlock * initDMAControlBlock(uint32_t transferInfo, uint32_t srcAddr, uint32_t destAddr, uint32_t bytesToTransfer, char arePhysAddr) {
     //if (!virtPage) {
