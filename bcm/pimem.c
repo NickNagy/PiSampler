@@ -35,15 +35,17 @@ static uint32_t ceilToPage(uint32_t size) {
 }
 
 /* returns a map to memory of given size and @ address offset */
-void * initMemMap(uint32_t offset, uint32_t size) {
+volatile uint32_t * initMemMap(uint32_t offset, uint32_t size) {
     if (offset % BCM_PAGESIZE) {
         printf("ERROR: the address offset must be a multiple of the page size, which is %d bytes.\n", BCM_PAGESIZE);
         return 0;
     }
     if (!memfd) {
         if (openFiles()) return 0;
-    }    
-    return mmap(0, size, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_SHARED|MAP_LOCKED, memfd, bcm_base + offset);
+    }
+    if (!bcm_base) 
+        bcm_base = bcm_host_get_peripheral_address();
+    return (volatile uint32_t *)mmap(0, size, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_SHARED|MAP_LOCKED, memfd, bcm_base + offset);
 }
 
 void clearMemMap(void * map, uint32_t size) {
