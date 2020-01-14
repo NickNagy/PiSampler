@@ -26,6 +26,8 @@ static bool openFiles() {
 
 // used for calculations, not for an actual reference to bcm base, therefore returns an integer instead of a ptr
 uint32_t getBCMBase() {
+    if (!bcm_base)
+        bcm_base = bcm_host_get_peripheral_address();
     return bcm_base;
 }
 
