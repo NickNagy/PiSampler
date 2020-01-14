@@ -25,7 +25,7 @@ uint32_t getBCMBase();
   
 static uint32_t ceilToPage(uint32_t size);
 
-void * initMemMap(uint32_t offset, uint32_t size);
+volatile uint32_t * initMemMap(uint32_t offset, uint32_t size);
 
 void clearMemMap(void * map, uint32_t size);
 
@@ -34,6 +34,8 @@ void * initLockedMem(uint32_t size);
 void clearLockedMem(void * mem, uint32_t size);
 
 void initVirtPhysPage(void ** virtAddr, void ** physAddr);
+
+void clearVirtPhysPage(void * virtAddr);
 
 uintptr_t virtToPhys(void * virtAddr);
 
