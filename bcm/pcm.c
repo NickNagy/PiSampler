@@ -96,7 +96,7 @@ static void initRXTXControlRegisters(pcmExternInterface * ext, bool packedMode) 
 
 static void initDMAMode(uint8_t dataWidth, uint8_t thresh, bool packedMode) {
     if (!dmaMap)
-        dmaMap = (volatile uint32_t *)initMemMap(DMA_BASE_OFFSET, DMA_MAPSIZE);//initDMAMap(TXDMA + 1);
+        dmaMap = initMemMap(DMA_BASE_OFFSET, DMA_MAPSIZE);//initDMAMap(TXDMA + 1);
 
     // set DMAEN to enable DREQ generation and set RX/TXREQ, RX/TXPANIC
     pcmMap[PCM_CTRL_REG] |= (1 << 9); // DMAEN
