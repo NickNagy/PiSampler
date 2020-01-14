@@ -119,6 +119,11 @@ void initVirtPhysPage(void ** virtAddr, void ** physAddr) {
     printf("Virtual page based at %p maps to physical address base %p\n", *virtAddr, *physAddr);
 }
 
+void clearVirtPhysPage(void * virtAddr) {
+    munlock(virtAddr, BCM_PAGESIZE);
+    free(virtAddr);
+}
+
 /*
 returns a pointer to the corresponding physical address of *virtAddr
 */
