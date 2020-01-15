@@ -23,6 +23,9 @@
 #define COND_PRINT_VAL(cond, name, val) if (cond) PRINT_VAL(name, val);
 #define DEBUG_VAL(name, val) COND_PRINT_VAL(DEBUG, name, val)
 
+#define WARN_MSG(msg)  printf("WARNING: %s\n", msg); 
+#define ERROR_MSG(msg) printf("ERROR: %s\n", msg); 
+
 void * getAlignedPointer(void * ptr, int32_t byteAlignment);
 
 // from pigpio.c --> https://github.com/joan2937/pigpio/blob/master/pigpio.c
