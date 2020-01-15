@@ -2,9 +2,11 @@
 
 void * getAlignedPointer(void * ptr, int32_t byteAlignment) {
     if (!ptr) {
-        printf("ERROR! Uninitialized pointer. Aborting without update.\n");
+        ERROR_MSG("Uninitialized pointer. Aborting without update.");
+        exit(1);
     } else if (byteAlignment % 2 != 0) { // TODO: this logic is incorrect!!
-        printf("ERROR! Byte alignment must be a power of 2. Pointer not updated.\n");
+        ERROR_MSG("Byte alignment must be a power of 2. Pointer not updated.");
+        exit(1);
     } else {
         int32_t ptrRelevantBits = (int32_t)ptr & ~(~byteAlignment + 1);
         if (!ptrRelevantBits) // already aligned
