@@ -23,7 +23,7 @@ static bool openFiles();
 
 uint32_t getBCMBase();
   
-static uint32_t ceilToPage(uint32_t size);
+uint32_t ceilToPage(uint32_t size);
 
 volatile uint32_t * initMemMap(uint32_t offset, uint32_t size);
 
