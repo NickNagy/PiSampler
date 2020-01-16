@@ -134,7 +134,7 @@ typedef struct DMAControlPageWrapper {
 
 volatile uint32_t * initDMAMap(char numDMARegs);
 
-DMAControlPageWrapper * initDMAControlPage(int numControlBlocks);
+DMAControlPageWrapper * initDMAControlPage(uint32_t numControlBlocks);
 
 void clearDMAControlPage(DMAControlPageWrapper * cbWrapper);
 
