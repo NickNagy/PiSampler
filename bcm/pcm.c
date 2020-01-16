@@ -1,7 +1,6 @@
 #include "pcm.h"
 
-static volatile uint32_t * pcmMap = 0; 
-static volatile uint32_t * dmaMap = 0;
+static volatile uint32_t * pcmMap = 0;
 static bool pcmInitialized;
 static bool pcmRunning;
 
@@ -95,15 +94,15 @@ static void initRXTXControlRegisters(pcmExternInterface * ext, bool packedMode) 
 
 
 static void initDMAMode(uint8_t dataWidth, uint8_t thresh, bool packedMode) {
-    if (!dmaMap)
-        dmaMap = initMemMap(DMA_BASE_OFFSET, DMA_MAPSIZE);//initDMAMap(TXDMA + 1);
-
     // set DMAEN to enable DREQ generation and set RX/TXREQ, RX/TXPANIC
     pcmMap[PCM_CTRL_REG] |= (1 << 9); // DMAEN
     
     usleep(1000);
     
     pcmMap[PCM_DREQ_REG] = ((thresh + 1) << 24) | ((thresh + 1)<<16) | (thresh << 8) | thresh;
+
+    // read from FIFO to here, and write from here to FIFO
+    void * bufferPage = initUncachedMemView(initLockedMem(BCM_PAGESIZE), USE_DIRECT_UNCACHED);
     
     // peripheral addresses must be physical
     //uint32_t bcm_base = getBCMBase();
@@ -117,24 +116,17 @@ static void initDMAMode(uint8_t dataWidth, uint8_t thresh, bool packedMode) {
     uint32_t rxTransferInfo = (PERMAP(RXPERMAP) | SRC_DREQ | DEST_INC);
     uint32_t txTransferInfo = (PERMAP(TXPERMAP) | DEST_DREQ | SRC_INC);
 
-    void * DMABuffCached = initLockedMem(BCM_PAGESIZE); // <-- want to change this param logic
-    void * DMABuff = initUncachedMemView(DMABuffCached, BCM_PAGESIZE, 0);
-    
-    // 2 control blocks, 1 for rx and 1 for tx
-    DMAControlBlock ** cbPageCached = (DMAControlBlock **)initLockedMem(2*sizeof(DMAControlBlock));
-    DMAControlBlock ** cbPage = (DMAControlBlock **)initUncachedMemView((void *)cbPageCached, BCM_PAGESIZE, 0);
-    cbPage[0] = initDMAControlBlock(rxTransferInfo, fifoPhysAddr, (uint32_t)virtToUncachedPhys(DMABuff, 0), transferLength, 3);
-    cbPage[1] = initDMAControlBlock(txTransferInfo, (uint32_t)virtToUncachedPhys(DMABuff, 0), fifoPhysAddr, transferLength, 3);
-    // set control blocks to point to each other
-    cbPage[0] -> nextControlBlockAddr = (uint32_t)virtToUncachedPhys((void*)(cbPageCached[1]), 0);
-    cbPage[1] -> nextControlBlockAddr = (uint32_t)virtToUncachedPhys((void*)(cbPageCached[0]), 0);
-    
+    DMAControlPageWrapper * cbWrapper = initDMAControlPage(2);
+
+    insertDMAControlBlock (cbWrapper, txTransferInfo, virtToUncachedPhys(bufferPage, USE_DIRECT_UNCACHED), fifoPhysAddr, transferLength, 0);
+    insertDMAControlBlock (cbWrapper, rxTransferInfo, fifoPhysAddr, virtToUncachedPhys(bufferPage, USE_DIRECT_UNCACHED), transferLength, 1);
     VERBOSE_MSG("Control blocks set.\n");
     
+    // create loop b/w two control blocks
+    linkDMAControlBlocks(cbWrapper, 1, 0);
     VERBOSE_MSG("Control block loop(s) set.\n");
-    
-    dmaMap[DMA_CONBLK_AD_REG(RXDMA)] = (uint32_t)cbPage;
 
+    initDMAChannel(RXDMA);
     VERBOSE_MSG("Control blocks loaded into DMA registers.\nDMA mode successfully initialized.\n");
 }
 
@@ -216,13 +208,8 @@ void startPCM() {
     }
     pcmRunning = 1;
     VERBOSE_MSG("Starting PCM...\n");
-    // NOTE: transmit FIFO should be pre-loaded with data
-    // start the DMA (which should fill the TX FIFO)
-    dmaMap[DMA_CS_REG(TXDMA)] |= 1;
-    dmaMap[DMA_CS_REG(RXDMA)] |= 1;
-    
-    DEBUG_REG("Control reg after DMA enabled", pcmMap[PCM_CTRL_REG]);
 
+    startDMAChannel(RXDMA);
     pcmMap[PCM_CTRL_REG] |= RXONTXON;
     
     DEBUG_REG("PCM ctrl reg w/ tx and rx on", pcmMap[PCM_CTRL_REG]);

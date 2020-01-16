@@ -98,6 +98,8 @@ char priorityLevels: (x << 16)
 #define WAIT_RESP(x)   x<<3
 #define TD_MODE(x)     x<<1
 
+#define USE_DIRECT_UNCACHED 0
+
 /* ***** CONTROL BLOCK ******
 transferLength: (in bytes)!
     top 16 bits: yTransferLength: 
@@ -124,8 +126,26 @@ typedef struct DMAControlBlock {
     uint64_t reserved;
 } DMAControlBlock;
 
+typedef struct DMAControlPageWrapper {
+    DMAControlBlock * cbPage;
+    uint32_t controlBlocksTotal;
+    uint32_t controlBlocksUsed;
+} DMAControlPageWrapper;
+
 volatile uint32_t * initDMAMap(char numDMARegs);
 
-DMAControlBlock * initDMAControlBlock(uint32_t transferInfo, uint32_t srcAddr, uint32_t destAddr, uint32_t bytesToTransfer, char arePhysAddr);
+DMAControlPageWrapper * initDMAControlPage(int numControlBlocks);
+
+void clearDMAControlPage(DMAControlPageWrapper * cbWrapper);
+
+void linkDMAControlBlocks (DMAControlPageWrapper * cbWrapper, uint32_t cb1, uint32_t cb2);
+
+void initDMAControlBlock (DMAControlPageWrapper * cbWrapper, uint32_t transferInfo, uint32_t physSrcAddr, uint32_t physDestAddr, uint32_t bytesToTransfer);
+
+void insertDMAControlBlock(DMAControlPageWrapper * cbWrapper, uint32_t transferInfo, uint32_t physSrcAddr, uint32_t physDestAddr, uint32_t bytesToTransfer, uint32_t position);
+
+void initDMAChannel(DMAControlBlock * cb, uint8_t dmaCh);
+
+void startDMAChannel(uint8_t dmaCh);
 
 #endif

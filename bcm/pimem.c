@@ -32,7 +32,7 @@ uint32_t getBCMBase() {
 }
 
 /* rounds size to nearest multiple of BCM_PAGESIZE and returns */
-static uint32_t ceilToPage(uint32_t size) {
+uint32_t ceilToPage(uint32_t size) {
     return (size & (BCM_PAGESIZE - 1)) ? size + BCM_PAGESIZE - (size & (BCM_PAGESIZE-1)): size;
 }
 
