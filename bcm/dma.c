@@ -33,7 +33,7 @@ DMAControlPageWrapper * initDMAControlPage(uint32_t numControlBlocks) {
 
 // doesn't actually delete the struct or ptr, but frees up the cbPage mem
 void clearDMAControlPage(DMAControlPageWrapper * cbWrapper) {
-    clearUncachedMemView(cbWrapper -> cbPage);
+    clearUncachedMemView(cbWrapper -> cbPage, 32*cbWrapper -> controlBlocksTotal);
     cbWrapper -> controlBlocksTotal = 0;
     cbWrapper -> controlBlocksUsed = 0;
 }
@@ -46,7 +46,7 @@ void linkDMAControlBlocks (DMAControlPageWrapper * cbWrapper, uint32_t cb1, uint
         ERROR_MSG("Control block does not exist in this page!");
         exit(1);
     }
-    cbWrapper -> cbPage[cb1].nextControlBlockAddr = (uint32_t)virtToUncachedPhys(cbWrapper->cbPage[cb2], USE_DIRECT_UNCACHED);
+    cbWrapper -> cbPage[cb1].nextControlBlockAddr = (uint32_t)virtToUncachedPhys((void*)(&(cbWrapper->cbPage[cb2])), USE_DIRECT_UNCACHED);
 }
 
 /*
@@ -79,7 +79,7 @@ void insertDMAControlBlock(DMAControlPageWrapper * cbWrapper, uint32_t transferI
         ERROR_MSG("Not enough control blocks have been initialized for this insert!");
         exit(1);
     }
-    appendDMAControlBlock(cbWrapper, transferInfo, physSrcAddr, physDestAddr, bytesToTransfer);
+    initDMAControlBlock(cbWrapper, transferInfo, physSrcAddr, physDestAddr, bytesToTransfer);
     linkDMAControlBlocks(cbWrapper, position-1, position);
     linkDMAControlBlocks(cbWrapper, position, position+1);
 }

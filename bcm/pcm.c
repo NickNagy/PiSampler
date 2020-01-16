@@ -102,7 +102,7 @@ static void initDMAMode(uint8_t dataWidth, uint8_t thresh, bool packedMode) {
     pcmMap[PCM_DREQ_REG] = ((thresh + 1) << 24) | ((thresh + 1)<<16) | (thresh << 8) | thresh;
 
     // read from FIFO to here, and write from here to FIFO
-    void * bufferPage = initUncachedMemView(initLockedMem(BCM_PAGESIZE), USE_DIRECT_UNCACHED);
+    void * bufferPage = initUncachedMemView(initLockedMem(BCM_PAGESIZE), BCM_PAGESIZE, USE_DIRECT_UNCACHED);
     
     // peripheral addresses must be physical
     //uint32_t bcm_base = getBCMBase();
@@ -126,7 +126,7 @@ static void initDMAMode(uint8_t dataWidth, uint8_t thresh, bool packedMode) {
     linkDMAControlBlocks(cbWrapper, 1, 0);
     VERBOSE_MSG("Control block loop(s) set.\n");
 
-    initDMAChannel(RXDMA);
+    initDMAChannel(cbWrapper->cbPage, (uint8_t)RXDMA);
     VERBOSE_MSG("Control blocks loaded into DMA registers.\nDMA mode successfully initialized.\n");
 }
 
@@ -209,7 +209,7 @@ void startPCM() {
     pcmRunning = 1;
     VERBOSE_MSG("Starting PCM...\n");
 
-    startDMAChannel(RXDMA);
+    startDMAChannel((uint8_t)RXDMA);
     pcmMap[PCM_CTRL_REG] |= RXONTXON;
     
     DEBUG_REG("PCM ctrl reg w/ tx and rx on", pcmMap[PCM_CTRL_REG]);
