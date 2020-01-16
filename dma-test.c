@@ -7,6 +7,8 @@
 volatile uint32_t * dmaMap = 0;
 
 void dma_test_wallacoloo() {
+    //int dmaCh = 5;
+    
     void * virtSrcPage, *physSrcPage;
     initVirtPhysPage(&virtSrcPage, &physSrcPage);
 
@@ -30,14 +32,19 @@ void dma_test_wallacoloo() {
 	
     void * virtCBPage, *physCBPage;
     initVirtPhysPage(&virtCBPage, &physCBPage);
+    
+    DMAControlPageWrapper * cbWrapper = initDMAControlPage(1);
+    
+    DEBUG_MSG("wrapper struct init");
 
     DMAControlBlock * cb = (DMAControlBlock *)virtCBPage;
 
     cb -> transferInfo = SRC_INC | DEST_INC;
     cb -> srcAddr = (uint32_t)physSrcPage;
     cb -> destAddr = (uint32_t)physDestPage;
-    cb -> transferLength = 12;
+    cb -> transferLength = 13;
     cb -> stride = 0;
+    cb -> reserved = 0;
     cb -> nextControlBlockAddr = 0;
 
     //enable DMA channel
@@ -51,7 +58,7 @@ void dma_test_wallacoloo() {
 	// alternatively, can just to VirtToPhys, but probably not as efficient
 	dmaMap[DMA_CONBLK_AD_REG(DMA_TEST_CHANNEL)] = (uint32_t)physCBPage; // temporarily...
 
-    dmaMap[DMA_CONBLK_AD_REG(DMA_TEST_CHANNEL)] = 1;
+    dmaMap[DMA_CS_REG(DMA_TEST_CHANNEL)] = 1;
 
     sleep(1);
 
@@ -59,6 +66,7 @@ void dma_test_wallacoloo() {
 
     clearVirtPhysPage(virtSrcPage);
     clearVirtPhysPage(virtDestPage);
+    clearDMAControlPage(cbWrapper);
 }
 
 void dma_test_0() {

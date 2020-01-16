@@ -145,7 +145,7 @@ uintptr_t virtToPhys(void * virtAddr) {
     
     read(pagemapfd, &pageInfo, PAGEMAP_LENGTH - 1);
 
-    if (!(pageInfo & 0x8000000000000000)) {
+    if (!(pageInfo & (1<<63))) {//0x8000000000000000)) {
         printf("WARNING: %p has no phyiscal address!\n", virtAddr);
     }
 
@@ -184,7 +184,7 @@ void * initUncachedMemView(void * virtAddr, uint32_t size, bool useDirectUncache
 
     // iterate page by page of uncached mem space, verifying that mem is contiguous, and mapping/offsetting to uncached addresses
     for (int offset = 0; offset < size; offset += BCM_PAGESIZE) {
-        void * mappedPage = mmap(mem + offset, BCM_PAGESIZE, PROT_WRITE|PROT_READ, MAP_SHARED|MAP_FIXED|MAP_NORESERVE, memfd, (uint32_t)virtToUncachedPhys(virtAddr + offset, useDirectUncached));
+        void * mappedPage = mmap(mem + offset, BCM_PAGESIZE, PROT_WRITE|PROT_READ, MAP_SHARED|MAP_FIXED|MAP_NORESERVE|MAP_LOCKED, memfd, (uint32_t)virtToUncachedPhys(virtAddr + offset, useDirectUncached));
         if (mappedPage != mem + offset) {
             printf("Failed to map contiguous uncached memory.\n");
             return 0;

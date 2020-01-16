@@ -25,7 +25,9 @@ It also stores two unsigned ints: controlBlocksTotal (== numControlBlocks), and 
 DMAControlPageWrapper * initDMAControlPage(uint32_t numControlBlocks) {
     DMAControlPageWrapper * cbWrapper;
     size_t size = ceilToPage(numControlBlocks * 32);
+    DEBUG_VAL("size", size);
     cbWrapper -> cbPage = (DMAControlBlock *)initUncachedMemView(initLockedMem(size), size, USE_DIRECT_UNCACHED);
+    DEBUG_VAL("address of page", &(cbWrapper -> cbPage));
     cbWrapper -> controlBlocksTotal = numControlBlocks;
     cbWrapper -> controlBlocksUsed = 0;
     return cbWrapper;
