@@ -143,9 +143,12 @@ uintptr_t virtToPhys(void * virtAddr) {
         printf("WARNING: failed to seek. Expected %i, got %i\n", pageNumber*PAGEMAP_LENGTH, err);
     }
     
-    read(pagemapfd, &pageInfo, PAGEMAP_LENGTH - 1);
+    read(pagemapfd, &pageInfo, PAGEMAP_LENGTH); //- 1);
+    
+    if (DEBUG)
+        printf("pageInfo = %llu\n", pageInfo);//DEBUG_VAL("page info", pageInfo);
 
-    if (!(pageInfo & (1<<63))) {//0x8000000000000000)) {
+    if (!(pageInfo & (1ull<<63))) {//0x8000000000000000)) {
         printf("WARNING: %p has no phyiscal address!\n", virtAddr);
     }
 
