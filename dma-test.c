@@ -6,6 +6,16 @@
 
 volatile uint32_t * dmaMap = 0;
 
+void addressSwapTest() {
+    void * virtPtr = malloc(1);
+    printf("Virtual address of ptr: %p\n", virtPtr);
+    void * busPtr = virtToUncachedPhys(virtPtr, USE_DIRECT_UNCACHED);
+    printf("Bus address of ptr: %p\n", busPtr);
+    void * physPtr = busToPhys(busPtr);
+    printf("Physical address of ptr: %p\n", physPtr);
+    free (virtPtr);
+}
+
 void dma_test_wallacoloo() {
     //int dmaCh = 5;
     
@@ -206,7 +216,7 @@ int main(int argc, char ** argv) {
         dma_test_1();
     } */
 
-    dma_test_wallacoloo();
+    addressSwapTest();//dma_test_wallacoloo();
 
     munmap((void *)dmaMap, DMA_MAPSIZE);
 

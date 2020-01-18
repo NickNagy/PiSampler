@@ -24,10 +24,14 @@ It also stores two unsigned ints: controlBlocksTotal (== numControlBlocks), and 
 */
 DMAControlPageWrapper * initDMAControlPage(uint32_t numControlBlocks) {
     DMAControlPageWrapper * cbWrapper;
+    
     size_t size = ceilToPage(numControlBlocks * 32);
-    DEBUG_VAL("size", size);
-    cbWrapper -> cbPage = (DMAControlBlock *)initUncachedMemView(initLockedMem(size), size, USE_DIRECT_UNCACHED);
-    DEBUG_VAL("address of page", &(cbWrapper -> cbPage));
+
+    cbWrapper->pages = initUncachedMemView(size, USE_DIRECT_UNCACHED);
+
+    //cbWrapper -> cbPage = (DMAControlBlock *)(pages->virtAddr);
+
+    //DEBUG_VAL("address of page", &(cbWrapper -> cbPage));
     cbWrapper -> controlBlocksTotal = numControlBlocks;
     cbWrapper -> controlBlocksUsed = 0;
     return cbWrapper;
@@ -35,7 +39,7 @@ DMAControlPageWrapper * initDMAControlPage(uint32_t numControlBlocks) {
 
 // doesn't actually delete the struct or ptr, but frees up the cbPage mem
 void clearDMAControlPage(DMAControlPageWrapper * cbWrapper) {
-    clearUncachedMemView(cbWrapper -> cbPage, 32*cbWrapper -> controlBlocksTotal);
+    clearUncachedMemView(cbWrapper -> pages);
     cbWrapper -> controlBlocksTotal = 0;
     cbWrapper -> controlBlocksUsed = 0;
 }
@@ -48,7 +52,8 @@ void linkDMAControlBlocks (DMAControlPageWrapper * cbWrapper, uint32_t cb1, uint
         ERROR_MSG("Control block does not exist in this page!");
         exit(1);
     }
-    cbWrapper -> cbPage[cb1].nextControlBlockAddr = (uint32_t)virtToUncachedPhys((void*)(&(cbWrapper->cbPage[cb2])), USE_DIRECT_UNCACHED);
+    (DMAControlBlock *)(cbWrapper -> pages -> virtAddr)[cb1].nextControlBlockAddr = (uint32_t)(&(DMAControlBlock *)(cbWrapper -> pages -> busAddr)[cb2]);
+    //cbWrapper -> cbPage[cb1].nextControlBlockAddr = (uint32_t)virtToUncachedPhys((void*)(&(cbWrapper->cbPage[cb2])), USE_DIRECT_UNCACHED);
 }
 
 /*
@@ -62,10 +67,14 @@ void initDMAControlBlock (DMAControlPageWrapper * cbWrapper, uint32_t transferIn
         exit(1);
     }
     uint32_t idx = cbWrapper -> controlBlocksUsed;
-    cbWrapper -> cbPage[idx].transferInfo = transferInfo;
-    cbWrapper -> cbPage[idx].srcAddr = physSrcAddr;
-    cbWrapper -> cbPage[idx].destAddr = physDestAddr;
-    cbWrapper -> cbPage[idx].transferLength = bytesToTransfer;
+    DMAControlBlock * cb = &(DMAControlBlock *)(cbWrapper -> pages -> virtAddr)[idx];
+    cb.transferInfo = transferInfo;//cbWrapper -> cbPage[idx].transferInfo = transferInfo;
+    cb.srcAddr = physSrcAddr;
+    cb.destAddr = physDestAddr;
+    cb.transferInfo = bytesToTransfer;
+    //cbWrapper -> cbPage[idx].srcAddr = physSrcAddr;
+    //cbWrapper -> cbPage[idx].destAddr = physDestAddr;
+    //cbWrapper -> cbPage[idx].transferLength = bytesToTransfer;
     cbWrapper -> controlBlocksUsed++;
 }
 
