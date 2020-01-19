@@ -3,6 +3,7 @@
 static uint32_t bcm_base = 0;
 static uint32_t memfd = 0;
 static uint32_t pagemapfd = 0;
+static uint32_t vciofd = 0;
 
 /* 
 initializes memfd and pagemapfd, which are used by multiple functions in this file
@@ -11,17 +12,32 @@ returns 0 if successful, 1 otherwise
 static bool openFiles() {
     if (!memfd) {
         if((memfd = open("/dev/mem", O_RDWR | O_SYNC)) < 0) {
-            printf("Failure to access /dev/mem\n"); 
+            ERROR_MSG("Failure to access /dev/mem."); 
             return 1;
         }
     }
     if (!pagemapfd) {
         if((pagemapfd = open("/proc/self/pagemap", 'r')) < 0) {
-            printf("Failure to access /proc/self/pagemap.\n");
+            ERROR_MSG("Failure to access /proc/self/pagemap.");
+            return 1;
+        }
+    }
+    if (!vciofd) {
+        if ((vciofd = open("/dev/vcio", 0)) < 0) {
+            ERROR_MSG("Failure to access /dev/vcio.");
             return 1;
         }
     }
     return 0;
+}
+
+void closeFiles() {
+    if (memfd)
+        close(memfd);
+    if (pagemapfd)
+        close(pagemapfd);
+    if (vciofd)
+        close(vciofd);
 }
 
 // used for calculations, not for an actual reference to bcm base, therefore returns an integer instead of a ptr
@@ -201,4 +217,59 @@ void * initUncachedMemView(void * virtAddr, uint32_t size, bool useDirectUncache
 void clearUncachedMemView(void * mem, uint32_t size) {
     size = ceilToPage(size);
     munmap(mem, size);
+}
+
+/* mailbox interface funcs
+
+sources: 
+https://github.com/raspberrypi/firmware/wiki/Mailbox-property-interface
+https://github.com/raspberrypi/userland/blob/master/host_applications/linux/apps/vcmailbox/vcmailbox.c
+
+ */
+
+// WARNING: mixed information on if L2 coherent base is at 0x4... or 0x8...
+static uintptr_t busToPhys(void * busAddr, bool useDirectUncached) {
+    return useDirectUncached ? (busAddr & ~DIRECT_UNCACHED_BASE) : (busAddr & ~L2_COHERENT_BASE);
+}
+
+static void mailboxWrite(void * message) {
+    if (!vciofd)
+        vciofd = open("/dev/vcio", 0);
+    int ret;
+    if (!(ret = ioctl(vciofd, _IOWR(100, 0, char *), message)))
+        ERROR_MSG("Failed to send mailbox data.");
+}
+
+static uint32_t sendMailboxMessage(uint32_t messageId, uint32_t * payload, uint32_t payloadSize) {
+    MailboxMessage<payloadSize> message(messageId);
+    for (uint32_t i = 0; i < payloadSize; i++) {
+        message.payload[i] = payload[i];
+    }
+    mailboxWrite(&message);
+    return message.result;
+}
+
+VirtToPhysPages * initUncachedMemView(uint32_t size, bool useDirectUncached) {
+    VirtToPhysPages * mem;
+    mem.size = ceilToPage(size);
+
+    uint32_t cacheFlags = useDirectUncached ? MAILBOX_MEM_FLAG_DIRECT : MAILBOX_MEM_FLAG_COHERENT;
+
+    uint32_t mallocPayload[3] = {
+        mem.size,
+        BCM_PAGESIZE,
+        cacheFlags
+    };
+
+    mem.allocationHandle = sendMailboxMessage(MAILBOX_MALLOC_TAG, mallocPayload, 3);
+    mem.busAddr = sendMailboxMessage(MAILBOX_MLOCK_TAG, mem.allocationHandle, 1);
+    mem.virtAddr = mmap(0, size, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_LOCKED, memfd, (uint32_t)busToPhys(mem.busAddr, useDirectUncached));
+
+    return mem;
+}
+
+void clearUncachedMemView(VirtToPhysPages * mem) {
+    munmap(mem.virtAddr, mem.size);
+    sendMailboxMessage(MAILBOX_MUNLOCK_TAG, mem.allocationHandle);
+    sendMailboxMessage(MAILBOX_FREE_TAG, mem.allocationHandle);
 }
