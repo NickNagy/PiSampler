@@ -30,12 +30,12 @@
 #define MAILBOX_MEM_FLAG_DIRECT   0x4 // 0xC alias uncached
 #define MAILBOX_MEM_FLAG_COHERENT 0x8 // 0x8 alias (L2 - coherent) * datasheet describes this as L2-only
 
-typedef struct VirtToPhysPages {
+typedef struct VirtToBusPages {
     void * virtAddr;
     uintptr_t busAddr;
     uint32_t size;
     uint32_t allocationHandle;
-} VirtToPhysPages;
+} VirtToBusPages;
 
 static bool openFiles();
 
@@ -61,11 +61,7 @@ void clearVirtPhysPage(void * virtAddr);
 
 uintptr_t virtToPhys(void * virtAddr);
 
-uintptr_t virtToUncachedPhys(void * virtAddr, bool useDirectUncached);
-
-//void * initUncachedMemView(void * virtAddr, uint32_t size, bool useDirectUncached);
-
-//void clearUncachedMemView(void * mem, uint32_t size);
+uintptr_t virtToUncachedBus(void * virtAddr, bool useDirectUncached);
 
 /* Mailbox interface */
 
@@ -77,8 +73,8 @@ static uint32_t sendMailboxMessage(uint32_t messageId, uint32_t payload);
 
 static uint32_t sendMailboxMessages(uint32_t messageId, uint32_t payload[], uint32_t payloadSize);
 
-VirtToPhysPages initUncachedMemView(uint32_t size, bool useDirectUncached);
+VirtToBusPages initUncachedMemView(uint32_t size, bool useDirectUncached);
 
-void clearUncachedMemView(VirtToPhysPages * mem);
+void clearUncachedMemView(VirtToBusPages * mem);
 
 #endif

@@ -128,7 +128,7 @@ typedef struct DMAControlBlock {
 
 typedef struct DMAControlPageWrapper {
     //DMAControlBlock * cbPage;
-    VirtToPhysPages * pages;
+    VirtToBusPages * pages;
     uint32_t controlBlocksTotal;
     uint32_t controlBlocksUsed;
 } DMAControlPageWrapper;

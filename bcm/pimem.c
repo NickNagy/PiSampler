@@ -176,7 +176,7 @@ returns a corresponding physical address ptr for virtAddr that bypasses L1 cache
 if useDirectUncached == 0, will return an address that also bypasses L2 (direct uncached memory)
 if useDirectUncached == 1, will return an address that is L2 cache-coherent
 */
-uintptr_t virtToUncachedPhys(void * virtAddr, bool useDirectUncached) {
+uintptr_t virtToUncachedBus(void * virtAddr, bool useDirectUncached) {
     return useDirectUncached ? (virtToPhys(virtAddr) | DIRECT_UNCACHED_BASE) : (virtToPhys(virtAddr) | L2_COHERENT_BASE);
 }
 
@@ -234,8 +234,9 @@ static uint32_t sendMailboxMessages(uint32_t messageId, uint32_t payload[], uint
     return message[5];
 }
 
-VirtToPhysPages initUncachedMemView(uint32_t size, bool useDirectUncached) {
-    VirtToPhysPages mem;
+// TODO: zero out returned mem?
+VirtToBusPages initUncachedMemView(uint32_t size, bool useDirectUncached) {
+    VirtToBusPages mem;
     mem.size = ceilToPage(size);
 
     uint32_t cacheFlags = useDirectUncached ? MAILBOX_MEM_FLAG_DIRECT : MAILBOX_MEM_FLAG_COHERENT;
@@ -253,7 +254,7 @@ VirtToPhysPages initUncachedMemView(uint32_t size, bool useDirectUncached) {
     return mem;
 }
 
-void clearUncachedMemView(VirtToPhysPages * mem) {
+void clearUncachedMemView(VirtToBusPages * mem) {
     munmap(mem->virtAddr, mem->size);
     sendMailboxMessage(MAILBOX_MUNLOCK_TAG, mem->allocationHandle);
     sendMailboxMessage(MAILBOX_FREE_TAG, mem->allocationHandle);

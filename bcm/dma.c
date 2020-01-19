@@ -27,7 +27,7 @@ DMAControlPageWrapper * initDMAControlPage(uint32_t numControlBlocks) {
     
     size_t size = ceilToPage(numControlBlocks * 32);
     
-    VirtToPhysPages vtp = initUncachedMemView(size, USE_DIRECT_UNCACHED);
+    VirtToBusPages vtp = initUncachedMemView(size, USE_DIRECT_UNCACHED);
     cbWrapper->pages = &vtp;
 
     //cbWrapper -> cbPage = (DMAControlBlock *)(pages->virtAddr);
@@ -55,8 +55,7 @@ void linkDMAControlBlocks (DMAControlPageWrapper * cbWrapper, uint32_t cb1, uint
     }
     DMAControlBlock * cbVirt = (DMAControlBlock *)(cbWrapper -> pages -> virtAddr);
     DMAControlBlock * cbBus = (DMAControlBlock *)(cbWrapper -> pages -> busAddr);
-    cbVirt[cb1].nextControlBlockAddr = (uint32_t)&cbBus[cb2];
-    //cbWrapper -> cbPage[cb1].nextControlBlockAddr = (uint32_t)virtToUncachedPhys((void*)(&(cbWrapper->cbPage[cb2])), USE_DIRECT_UNCACHED);
+    cbVirt[cb1].nextControlBlockAddr = (uint32_t)&(cbBus[cb2]);
 }
 
 /*
@@ -71,13 +70,10 @@ void initDMAControlBlock (DMAControlPageWrapper * cbWrapper, uint32_t transferIn
     }
     uint32_t idx = cbWrapper -> controlBlocksUsed;
     DMAControlBlock * cbVirt = (DMAControlBlock *)(cbWrapper -> pages -> virtAddr);
-    cbVirt[idx].transferInfo = transferInfo;//cbWrapper -> cbPage[idx].transferInfo = transferInfo;
+    cbVirt[idx].transferInfo = transferInfo;
     cbVirt[idx].srcAddr = physSrcAddr;
     cbVirt[idx].destAddr = physDestAddr;
     cbVirt[idx].transferInfo = bytesToTransfer;
-    //cbWrapper -> cbPage[idx].srcAddr = physSrcAddr;
-    //cbWrapper -> cbPage[idx].destAddr = physDestAddr;
-    //cbWrapper -> cbPage[idx].transferLength = bytesToTransfer;
     cbWrapper -> controlBlocksUsed++;
 }
 
