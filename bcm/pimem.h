@@ -5,6 +5,7 @@
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <bcm_host.h>
+#include <errno.h>
 #include "../globals.h"
 
 #define BCM_PAGESIZE 4096
@@ -28,22 +29,6 @@
 // for mem bypasses
 #define MAILBOX_MEM_FLAG_DIRECT   0x4 // 0xC alias uncached
 #define MAILBOX_MEM_FLAG_COHERENT 0x8 // 0x8 alias (L2 - coherent) * datasheet describes this as L2-only
-
-// structs from: https://github.com/Wallacoloo/Raspberry-Pi-DMA-Example/issues/3
-template<int payloadSize> 
-struct MailboxMessage {
-	MailboxMessage(uint32_t messageId): sizeInBytes(sizeof(*this)), requestCode(0), messageId(messageId), messageSizeInBytes(payloadSize << 2), dataSizeInBytes(payloadSize << 2), messageEnd(0) {}
-    uint32_t sizeInBytes;
-    uint32_t requestCode;
-    uint32_t messageId;
-    uint32_t messageSizeInBytes;
-    uint32_t dataSizeInBytes;
-    union {
-        uint32_t payload[payloadSize];
-        uint32_t result;
-    };
-    uint32_t messageEnd;
-};
 
 typedef struct VirtToPhysPages {
     void * virtAddr;
@@ -88,11 +73,9 @@ uintptr_t busToPhys(void * busAddr, bool useDirectUncached);
 
 static void mailboxWrite(void * message);
 
-//static uint32_t sendMailboxMessage(uint32_t messageId, uint32_t * payload, uint32_t payloadSize);
-
 static uint32_t sendMailboxMessage(uint32_t messageId, uint32_t payload);
 
-static uint32_t sendMailboxMessage(uint32_t messageId, uint32_t payload0, uint32_t payload1, uint32_t payload2);
+static uint32_t sendMailboxMessages(uint32_t messageId, uint32_t payload[], uint32_t payloadSize);
 
 VirtToPhysPages initUncachedMemView(uint32_t size, bool useDirectUncached);
 

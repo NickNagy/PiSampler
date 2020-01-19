@@ -82,8 +82,6 @@ with its corresponding phyiscal memory.
 
 The latter returns a single void* == the phyiscal address correspoinding to virtAddr*
 
-initUncachedMemView() solves the problem of virtual addresses passing thru the Pi's L1 cache when mapping
-
 */
 
 /* 
@@ -182,44 +180,6 @@ uintptr_t virtToUncachedPhys(void * virtAddr, bool useDirectUncached) {
     return useDirectUncached ? (virtToPhys(virtAddr) | DIRECT_UNCACHED_BASE) : (virtToPhys(virtAddr) | L2_COHERENT_BASE);
 }
 
-/*
-returns a pointer (as a map to uncached mem) that behaves like virtAddr but inherently bypasses L1 cache (virtAddr writes pass thru cache by default)
-size should be a multiple of BCM_PAGESIZE --> if not, it will be rounded to the nearest BCM_PAGESIZE multiple
-if useDirectUncached == 0, will return mem map that also bypasses L2 (direct uncached memory)
-if useDirectUncached == 1, will return mem map that is L2 cache-coherent
-
-WARNINGS: 
-the returned value and original *virtAddr should not be used in conjunction --> I suggest returning value back into virtAddr
-the original memory should not be unmapped during the uncached mem's lifetime
-
-(once again, credit goes to: https://github.com/Wallacoloo/Raspberry-Pi-DMA-Example/blob/master/dma-gpio.c)
-*/
-
-/*void * initUncachedMemView(void * virtAddr, uint32_t size, bool useDirectUncached) {
-    size = ceilToPage(size);
-
-    // allocate arbitrary virtual mem then immediately free it
-    void * mem = mmap(NULL, size, PROT_WRITE|PROT_READ, MAP_SHARED|MAP_LOCKED|MAP_ANONYMOUS|MAP_NORESERVE, -1, 0);
-    munmap(mem, size);
-
-    // iterate page by page of uncached mem space, verifying that mem is contiguous, and mapping/offsetting to uncached addresses
-    for (int offset = 0; offset < size; offset += BCM_PAGESIZE) {
-        void * mappedPage = mmap(mem + offset, BCM_PAGESIZE, PROT_WRITE|PROT_READ, MAP_SHARED|MAP_FIXED|MAP_NORESERVE|MAP_LOCKED, memfd, (uint32_t)virtToUncachedPhys(virtAddr + offset, useDirectUncached));
-        if (mappedPage != mem + offset) {
-            printf("Failed to map contiguous uncached memory.\n");
-            return 0;
-        }
-    }
-
-    memset(mem, 0, size);
-    return mem;
-}
-
-void clearUncachedMemView(void * mem, uint32_t size) {
-    size = ceilToPage(size);
-    munmap(mem, size);
-}*/
-
 /* mailbox interface funcs
 
 sources: 
@@ -239,48 +199,39 @@ static void mailboxWrite(void * message) {
     int ret;
     if ((ret = ioctl(vciofd, _IOWR(100, 0, char *), message)) < 0)
         printf("ERROR: Failed to send mailbox data. Error no: %d\n", errno);
-        //ERROR_MSG("Failed to send mailbox data. Error no: %d");
 }
 
-/*static uint32_t sendMailboxMessage(uint32_t messageId, uint32_t * payload, uint32_t payloadSize) {
-    int payloadSizeInBytes = payloadSize << 2;
-    int size = 24+ payloadSizeInBytes;
-    uint32_t * message = (uint32_t*)malloc(size);
+static uint32_t sendMailboxMessage(uint32_t messageId, uint32_t payload) {
+    uint32_t message[7];
     
-    message[0] = size;
+    message[0] = 28; // size in bytes
+    message[1] = 0; // request code
+    message[2] = messageId;
+    message[3] = 4; // payload size in bytes
+    message[4] = 4;
+    message[5] = payload;
+    message[6] = 0; // message end
+    
+    mailboxWrite(&message);
+    return message[5]; // result
+}
+
+static uint32_t sendMailboxMessages(uint32_t messageId, uint32_t payload[], uint32_t payloadSize) {
+    uint32_t payloadSizeInBytes = payloadSize << 2;    
+    uint32_t message[7];
+    
+    message[0] = 24 + payloadSizeInBytes;
     message[1] = 0;
     message[2] = messageId;
     message[3] = payloadSizeInBytes;
     message[4] = payloadSizeInBytes;
-    
     for (uint32_t i = 0; i < payloadSize; i++) {
         message[5 + i] = payload[i];
     }
-    
     message[5 + payloadSize] = 0;
     
     mailboxWrite(&message);
-    
-    uint32_t result = message[5];
-    free(message);
-    return result;
-}*/
-
-
-static uint32_t sendMailboxMessage(uint32_t messageId, uint32_t payload) {
-    MailboxMessage<1> message(messageId);
-    message.payload[0] = payload;
-    mailboxWrite(&message);
-    return message.result;
-}
-
-static uint32_t sendMailboxMessage(uint32_t messageId, uint32_t payload0, uint32_t payload1, uint32_t payload2) {
-    MailboxMessage<3> message(messageId);
-    message.payload[0] = payload0;
-    message.payload[1] = payload1;
-    message.payload[2] = payload2;
-    mailboxWrite(&message);
-    return message.result;
+    return message[5];
 }
 
 VirtToPhysPages initUncachedMemView(uint32_t size, bool useDirectUncached) {
@@ -295,7 +246,7 @@ VirtToPhysPages initUncachedMemView(uint32_t size, bool useDirectUncached) {
         cacheFlags
     };
 
-    mem.allocationHandle = sendMailboxMessage(MAILBOX_MALLOC_TAG, mem.size, BCM_PAGESIZE, cacheFlags);
+    mem.allocationHandle = sendMailboxMessages(MAILBOX_MALLOC_TAG, mallocPayload, 3);
     mem.busAddr = sendMailboxMessage(MAILBOX_MLOCK_TAG, mem.allocationHandle);
     mem.virtAddr = mmap(0, size, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_LOCKED, memfd, (uint32_t)busToPhys((void *)mem.busAddr, useDirectUncached));
 
