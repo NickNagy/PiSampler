@@ -241,8 +241,11 @@ static void mailboxWrite(void * message) {
         ERROR_MSG("Failed to send mailbox data.");
 }
 
-static uint32_t sendMailboxMessage(uint32_t messageId, uint32_t * payload, uint32_t payloadSize) {
+static uint32_t sendMailboxMessage(uint32_t messageId, uint32_t * payload, const uint32_t payloadSize) {
     MailboxMessage<payloadSize> message(messageId);
+    if (payloadSize == 1) {
+        message.payload[0] = *payload;
+    }
     for (uint32_t i = 0; i < payloadSize; i++) {
         message.payload[i] = payload[i];
     }
@@ -262,8 +265,8 @@ VirtToPhysPages * initUncachedMemView(uint32_t size, bool useDirectUncached) {
         cacheFlags
     };
 
-    mem->allocationHandle = sendMailboxMessage(MAILBOX_MALLOC_TAG, (uint32_t*)mallocPayload, 3);
-    mem->busAddr = sendMailboxMessage(MAILBOX_MLOCK_TAG, (uint32_t*)mem->allocationHandle, 1);
+    mem->allocationHandle = sendMailboxMessage(MAILBOX_MALLOC_TAG, &mallocPayload, 3);
+    mem->busAddr = sendMailboxMessage(MAILBOX_MLOCK_TAG, &mem->allocationHandle, 1);
     mem->virtAddr = mmap(0, size, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_LOCKED, memfd, (uint32_t)busToPhys((void *)mem->busAddr, useDirectUncached));
 
     return mem;
@@ -271,6 +274,6 @@ VirtToPhysPages * initUncachedMemView(uint32_t size, bool useDirectUncached) {
 
 void clearUncachedMemView(VirtToPhysPages * mem) {
     munmap(mem->virtAddr, mem->size);
-    sendMailboxMessage(MAILBOX_MUNLOCK_TAG, mem->allocationHandle, 1);
-    sendMailboxMessage(MAILBOX_FREE_TAG, mem->allocationHandle, 1);
+    sendMailboxMessage(MAILBOX_MUNLOCK_TAG, &mem->allocationHandle, 1);
+    sendMailboxMessage(MAILBOX_FREE_TAG, &mem->allocationHandle, 1);
 }

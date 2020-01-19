@@ -31,8 +31,8 @@
 
 // structs from: https://github.com/Wallacoloo/Raspberry-Pi-DMA-Example/issues/3
 template <int payloadSize>
-typedef struct MailBoxMessage {
-    MailBoxMessage(uint32_t messageId):sizeInBytes(sizeof(*this)), requestCode(0), messageId(messageId), messageSizeInBytes(payloadSize<<2), dataSizeInBytes(payloadSize<<2), messageEnd(0) {}
+typedef struct MailboxMessage {
+    MailboxMessage(uint32_t messageId):sizeInBytes(sizeof(*this)), requestCode(0), messageId(messageId), messageSizeInBytes(payloadSize<<2), dataSizeInBytes(payloadSize<<2), messageEnd(0) {}
     uint32_t sizeInBytes;
     uint32_t requestCode;
     uint32_t messageId;
@@ -41,9 +41,9 @@ typedef struct MailBoxMessage {
     union {
         uint32_t payload[payloadSize];
         uint32_t result;
-    }
+    };
     uint32_t messageEnd;
-} MailBoxMessage;
+} MailboxMessage;
 
 typedef struct VirtToPhysPages {
     void * virtAddr;
