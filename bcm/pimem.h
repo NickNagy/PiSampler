@@ -78,11 +78,13 @@ uintptr_t virtToPhys(void * virtAddr);
 
 uintptr_t virtToUncachedPhys(void * virtAddr, bool useDirectUncached);
 
-void * initUncachedMemView(void * virtAddr, uint32_t size, bool useDirectUncached);
+//void * initUncachedMemView(void * virtAddr, uint32_t size, bool useDirectUncached);
 
-void clearUncachedMemView(void * mem, uint32_t size);
+//void clearUncachedMemView(void * mem, uint32_t size);
 
 /* Mailbox interface */
+
+uintptr_t busToPhys(void * busAddr, bool useDirectUncached);
 
 static void mailboxWrite(void * message);
 

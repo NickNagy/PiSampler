@@ -194,7 +194,8 @@ the original memory should not be unmapped during the uncached mem's lifetime
 
 (once again, credit goes to: https://github.com/Wallacoloo/Raspberry-Pi-DMA-Example/blob/master/dma-gpio.c)
 */
-void * initUncachedMemView(void * virtAddr, uint32_t size, bool useDirectUncached) {
+
+/*void * initUncachedMemView(void * virtAddr, uint32_t size, bool useDirectUncached) {
     size = ceilToPage(size);
 
     // allocate arbitrary virtual mem then immediately free it
@@ -217,7 +218,7 @@ void * initUncachedMemView(void * virtAddr, uint32_t size, bool useDirectUncache
 void clearUncachedMemView(void * mem, uint32_t size) {
     size = ceilToPage(size);
     munmap(mem, size);
-}
+}*/
 
 /* mailbox interface funcs
 
@@ -228,8 +229,8 @@ https://github.com/raspberrypi/userland/blob/master/host_applications/linux/apps
  */
 
 // WARNING: mixed information on if L2 coherent base is at 0x4... or 0x8...
-static uintptr_t busToPhys(void * busAddr, bool useDirectUncached) {
-    return useDirectUncached ? (busAddr & ~DIRECT_UNCACHED_BASE) : (busAddr & ~L2_COHERENT_BASE);
+uintptr_t busToPhys(void * busAddr, bool useDirectUncached) {
+    return useDirectUncached ? ((uintptr_t)busAddr & ~DIRECT_UNCACHED_BASE) : ((uintptr_t)busAddr & ~L2_COHERENT_BASE);
 }
 
 static void mailboxWrite(void * message) {
@@ -251,25 +252,25 @@ static uint32_t sendMailboxMessage(uint32_t messageId, uint32_t * payload, uint3
 
 VirtToPhysPages * initUncachedMemView(uint32_t size, bool useDirectUncached) {
     VirtToPhysPages * mem;
-    mem.size = ceilToPage(size);
+    mem->size = ceilToPage(size);
 
     uint32_t cacheFlags = useDirectUncached ? MAILBOX_MEM_FLAG_DIRECT : MAILBOX_MEM_FLAG_COHERENT;
 
     uint32_t mallocPayload[3] = {
-        mem.size,
+        mem->size,
         BCM_PAGESIZE,
         cacheFlags
     };
 
-    mem.allocationHandle = sendMailboxMessage(MAILBOX_MALLOC_TAG, mallocPayload, 3);
-    mem.busAddr = sendMailboxMessage(MAILBOX_MLOCK_TAG, mem.allocationHandle, 1);
-    mem.virtAddr = mmap(0, size, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_LOCKED, memfd, (uint32_t)busToPhys(mem.busAddr, useDirectUncached));
+    mem->allocationHandle = sendMailboxMessage(MAILBOX_MALLOC_TAG, (uint32_t*)mallocPayload, 3);
+    mem->busAddr = sendMailboxMessage(MAILBOX_MLOCK_TAG, (uint32_t*)mem->allocationHandle, 1);
+    mem->virtAddr = mmap(0, size, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_LOCKED, memfd, (uint32_t)busToPhys((void *)mem->busAddr, useDirectUncached));
 
     return mem;
 }
 
 void clearUncachedMemView(VirtToPhysPages * mem) {
-    munmap(mem.virtAddr, mem.size);
-    sendMailboxMessage(MAILBOX_MUNLOCK_TAG, mem.allocationHandle);
-    sendMailboxMessage(MAILBOX_FREE_TAG, mem.allocationHandle);
+    munmap(mem->virtAddr, mem->size);
+    sendMailboxMessage(MAILBOX_MUNLOCK_TAG, mem->allocationHandle, 1);
+    sendMailboxMessage(MAILBOX_FREE_TAG, mem->allocationHandle, 1);
 }

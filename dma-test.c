@@ -9,9 +9,9 @@ volatile uint32_t * dmaMap = 0;
 void addressSwapTest() {
     void * virtPtr = malloc(1);
     printf("Virtual address of ptr: %p\n", virtPtr);
-    void * busPtr = virtToUncachedPhys(virtPtr, USE_DIRECT_UNCACHED);
+    uintptr_t busPtr = virtToUncachedPhys(virtPtr, USE_DIRECT_UNCACHED);
     printf("Bus address of ptr: %p\n", busPtr);
-    void * physPtr = busToPhys(busPtr);
+    uintptr_t physPtr = busToPhys((void*)busPtr, USE_DIRECT_UNCACHED);
     printf("Physical address of ptr: %p\n", physPtr);
     free (virtPtr);
 }
@@ -21,11 +21,17 @@ void dma_test_wallacoloo() {
     
     void * virtSrcPage, *physSrcPage;
     //initVirtPhysPage(&virtSrcPage, &physSrcPage);
-    void * virtSrcPageCached = initLockedMem(BCM_PAGESIZE);
-    virtSrcPage = initUncachedMemView(virtSrcPageCached, BCM_PAGESIZE, USE_DIRECT_UNCACHED);
+    //void * virtSrcPageCached = initLockedMem(BCM_PAGESIZE);
+    //virtSrcPage = initUncachedMemView(virtSrcPageCached, BCM_PAGESIZE, USE_DIRECT_UNCACHED);
+    VirtToPhysPages * srcPages = initUncachedMemView(BCM_PAGESIZE, USE_DIRECT_UNCACHED);
+    virtSrcPage = srcPages -> virtAddr;
+    physSrcPage = (void *)(srcPages -> busAddr);
 
     void * virtDestPage, *physDestPage;
-    initVirtPhysPage(&virtDestPage, &physDestPage);
+    //initVirtPhysPage(&virtDestPage, &physDestPage);
+    VirtToPhysPages * destPages = initUncachedMemView(BCM_PAGESIZE, USE_DIRECT_UNCACHED);
+    virtDestPage = destPages -> virtAddr;
+    physDestPage = (void *)(destPages -> busAddr);
 
     char *srcArr = (char *)virtSrcPage;
     srcArr[0] = 'h';
@@ -43,7 +49,10 @@ void dma_test_wallacoloo() {
     srcArr[12] = 0;
 	
     void * virtCBPage, *physCBPage;
-    initVirtPhysPage(&virtCBPage, &physCBPage);
+    //initVirtPhysPage(&virtCBPage, &physCBPage);
+    VirtToPhysPages * cbPages = initUncachedMemView(BCM_PAGESIZE, USE_DIRECT_UNCACHED);
+    virtCBPage = cbPages -> virtAddr;
+    physCBPage = (void*)(cbPages -> busAddr);
     
     //DMAControlPageWrapper * cbWrapper = initDMAControlPage(1);
     
@@ -52,7 +61,7 @@ void dma_test_wallacoloo() {
     DMAControlBlock * cb = (DMAControlBlock *)virtCBPage;
 
     cb -> transferInfo = SRC_INC | DEST_INC;
-    cb -> srcAddr = (uint32_t)virtToUncachedPhys(virtSrcPageCached, USE_DIRECT_UNCACHED);//physSrcPage;
+    cb -> srcAddr = (uint32_t)physSrcPage;
     cb -> destAddr = (uint32_t)physDestPage;
     cb -> transferLength = 13;
     cb -> stride = 0;
@@ -77,11 +86,14 @@ void dma_test_wallacoloo() {
     printf("destination reads: '%s'\n", (char*)virtDestPage);
 
     //clearVirtPhysPage(virtSrcPage);
-    clearVirtPhysPage(virtDestPage);
-    clearUncachedMemView(virtSrcPage, BCM_PAGESIZE);
+    //clearVirtPhysPage(virtDestPage);
+    clearUncachedMemView(srcPages);
+    clearUncachedMemView(destPages);
+    clearUncachedMemView(cbPages);
     //clearDMAControlPage(cbWrapper);
 }
 
+/*
 void dma_test_0() {
     printf("DMA TEST 0:\n\t use a single DMA control block to write 'hello world!' to the destination.\n");
 
@@ -122,7 +134,7 @@ void dma_test_0() {
 
 	// alternatively, can just to VirtToPhys, but probably not as efficient
 	dmaMap[DMA_CONBLK_AD_REG(DMA_TEST_CHANNEL)] = (uint32_t)physCBPage; // temporarily...*/
-
+/*
     startDMAChannel(DMA_TEST_CHANNEL); //dmaMap[DMA_CS_REG(DMA_TEST_CHANNEL] = 1; // activate DMA channel...
 
     sleep(1);
@@ -132,7 +144,7 @@ void dma_test_0() {
     clearVirtPhysPage(virtSrcPage);
     clearVirtPhysPage(virtDestPage);
     clearDMAControlPage(cbWrapper);
-}
+}*/
 
 /*
 
@@ -141,6 +153,7 @@ initially, cb1's src = "uh-oh world!"
 goal: set cb1 instead to transfer "hello world!" to its destination
 
 */
+/*
 void dma_test_1() {
     printf("DMA TEST 1:\n\tUse 2 DMA control blocks to change the string 'uh-oh world!' to 'hello world!' and write it to the destination.\n");
 
@@ -198,7 +211,7 @@ void dma_test_1() {
     clearUncachedMemView(virtSrcPage, srcBytes);
     clearUncachedMemView(virtDestPage, destBytes);
     clearDMAControlPage(cbWrapper);
-}
+} */
 
 int main(int argc, char ** argv) {
     dmaMap = initMemMap(DMA_BASE_OFFSET, DMA_MAPSIZE);

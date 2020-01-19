@@ -52,7 +52,9 @@ void linkDMAControlBlocks (DMAControlPageWrapper * cbWrapper, uint32_t cb1, uint
         ERROR_MSG("Control block does not exist in this page!");
         exit(1);
     }
-    (DMAControlBlock *)(cbWrapper -> pages -> virtAddr)[cb1].nextControlBlockAddr = (uint32_t)(&(DMAControlBlock *)(cbWrapper -> pages -> busAddr)[cb2]);
+    DMAControlBlock * cbVirt = (DMAControlBlock *)(cbWrapper -> pages -> virtAddr);
+    DMAControlBlock * cbBus = (DMAControlBlock *)(cbWrapper -> pages -> busAddr);
+    cbVirt[cb1].nextControlBlockAddr = (uint32_t)&cbBus[cb2];
     //cbWrapper -> cbPage[cb1].nextControlBlockAddr = (uint32_t)virtToUncachedPhys((void*)(&(cbWrapper->cbPage[cb2])), USE_DIRECT_UNCACHED);
 }
 
@@ -67,11 +69,11 @@ void initDMAControlBlock (DMAControlPageWrapper * cbWrapper, uint32_t transferIn
         exit(1);
     }
     uint32_t idx = cbWrapper -> controlBlocksUsed;
-    DMAControlBlock * cb = &(DMAControlBlock *)(cbWrapper -> pages -> virtAddr)[idx];
-    cb.transferInfo = transferInfo;//cbWrapper -> cbPage[idx].transferInfo = transferInfo;
-    cb.srcAddr = physSrcAddr;
-    cb.destAddr = physDestAddr;
-    cb.transferInfo = bytesToTransfer;
+    DMAControlBlock * cbVirt = (DMAControlBlock *)(cbWrapper -> pages -> virtAddr);
+    cbVirt[idx].transferInfo = transferInfo;//cbWrapper -> cbPage[idx].transferInfo = transferInfo;
+    cbVirt[idx].srcAddr = physSrcAddr;
+    cbVirt[idx].destAddr = physDestAddr;
+    cbVirt[idx].transferInfo = bytesToTransfer;
     //cbWrapper -> cbPage[idx].srcAddr = physSrcAddr;
     //cbWrapper -> cbPage[idx].destAddr = physDestAddr;
     //cbWrapper -> cbPage[idx].transferLength = bytesToTransfer;
