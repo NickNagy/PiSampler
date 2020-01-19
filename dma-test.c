@@ -10,7 +10,9 @@ void dma_test_wallacoloo() {
     //int dmaCh = 5;
     
     void * virtSrcPage, *physSrcPage;
-    initVirtPhysPage(&virtSrcPage, &physSrcPage);
+    //initVirtPhysPage(&virtSrcPage, &physSrcPage);
+    void * virtSrcPageCached = initLockedMem(BCM_PAGESIZE);
+    virtSrcPage = initUncachedMemView(virtSrcPageCached, BCM_PAGESIZE, USE_DIRECT_UNCACHED);
 
     void * virtDestPage, *physDestPage;
     initVirtPhysPage(&virtDestPage, &physDestPage);
@@ -33,14 +35,14 @@ void dma_test_wallacoloo() {
     void * virtCBPage, *physCBPage;
     initVirtPhysPage(&virtCBPage, &physCBPage);
     
-    DMAControlPageWrapper * cbWrapper = initDMAControlPage(1);
+    //DMAControlPageWrapper * cbWrapper = initDMAControlPage(1);
     
     DEBUG_MSG("wrapper struct init");
 
     DMAControlBlock * cb = (DMAControlBlock *)virtCBPage;
 
     cb -> transferInfo = SRC_INC | DEST_INC;
-    cb -> srcAddr = (uint32_t)physSrcPage;
+    cb -> srcAddr = (uint32_t)virtToUncachedPhys(virtSrcPageCached, USE_DIRECT_UNCACHED);//physSrcPage;
     cb -> destAddr = (uint32_t)physDestPage;
     cb -> transferLength = 13;
     cb -> stride = 0;
@@ -64,9 +66,10 @@ void dma_test_wallacoloo() {
 
     printf("destination reads: '%s'\n", (char*)virtDestPage);
 
-    clearVirtPhysPage(virtSrcPage);
+    //clearVirtPhysPage(virtSrcPage);
     clearVirtPhysPage(virtDestPage);
-    clearDMAControlPage(cbWrapper);
+    clearUncachedMemView(virtSrcPage, BCM_PAGESIZE);
+    //clearDMAControlPage(cbWrapper);
 }
 
 void dma_test_0() {
