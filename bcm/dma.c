@@ -97,7 +97,7 @@ void insertDMAControlBlock(DMAControlPageWrapper * cbWrapper, uint32_t transferI
 /*
 Set the DMA control regs for dmaCh and set the starting control block address to the physical uncached address of cb
 */
-void initDMAChannel(DMAControlBlock * cb, uint8_t dmaCh) {
+void initDMAChannel(DMAControlBlock * physCB, uint8_t dmaCh) {
     if (!dmaMap) {
         dmaMap = initMemMap(DMA_BASE_OFFSET, DMA_MAPSIZE);
     }
@@ -109,7 +109,7 @@ void initDMAChannel(DMAControlBlock * cb, uint8_t dmaCh) {
 	// clear debug flags
 	dmaMap[DMA_DEBUG_REG(dmaCh)] = 7;
 
-    dmaMap[DMA_CONBLK_AD_REG(dmaCh)] = (uint32_t)virtToUncachedPhys(cb, USE_DIRECT_UNCACHED);
+    dmaMap[DMA_CONBLK_AD_REG(dmaCh)] = (uint32_t)physCB;
 }
 
 /* start the dma channel */

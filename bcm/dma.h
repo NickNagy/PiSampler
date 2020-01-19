@@ -145,7 +145,7 @@ void initDMAControlBlock (DMAControlPageWrapper * cbWrapper, uint32_t transferIn
 
 void insertDMAControlBlock(DMAControlPageWrapper * cbWrapper, uint32_t transferInfo, uint32_t physSrcAddr, uint32_t physDestAddr, uint32_t bytesToTransfer, uint32_t position);
 
-void initDMAChannel(DMAControlBlock * cb, uint8_t dmaCh);
+void initDMAChannel(DMAControlBlock * physCB, uint8_t dmaCh);
 
 void startDMAChannel(uint8_t dmaCh);
 

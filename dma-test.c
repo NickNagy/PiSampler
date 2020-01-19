@@ -90,6 +90,8 @@ void dma_test_0_mailbox() {
 
     DEBUG_PTR("virtDest", virtDestPage);
     DEBUG_PTR("physDest", busDestPage);
+    
+    sleep(1);
 
     char *srcArr = (char *)virtSrcPage;
     srcArr[0] = 'h';
@@ -152,12 +154,20 @@ void dma_test_0() {
     void * virtSrcPage, *busSrcPage;
     VirtToBusPages srcPages = initUncachedMemView(BCM_PAGESIZE, USE_DIRECT_UNCACHED);
     virtSrcPage = srcPages.virtAddr;
-    busSrcPage = (void *)srcPages.busAddr;
+    busSrcPage = (void *)(srcPages.busAddr);
+    
+    DEBUG_PTR("virtSrc", virtSrcPage);
+    DEBUG_PTR("physSrc", busSrcPage);
 
     void * virtDestPage, *busDestPage;
     VirtToBusPages destPages = initUncachedMemView(BCM_PAGESIZE, USE_DIRECT_UNCACHED);
     virtDestPage = destPages.virtAddr;
-    busDestPage = (void *)destPages.busAddr;
+    busDestPage = (void *)(destPages.busAddr);
+
+    DEBUG_PTR("virtDest", virtDestPage);
+    DEBUG_PTR("physDest", busDestPage);
+    
+    sleep(1);
 
     char *srcArr = (char *)virtSrcPage;
     srcArr[0] = 'h';
@@ -177,7 +187,7 @@ void dma_test_0() {
     DMAControlPageWrapper * cbWrapper = initDMAControlPage(1);
     initDMAControlBlock(cbWrapper, SRC_INC | DEST_INC, (uint32_t)busSrcPage, (uint32_t)busDestPage, 13);
 	
-    initDMAChannel(cbWrapper->cbPage, DMA_TEST_CHANNEL);
+    initDMAChannel((DMAControlBlock *)(cbWrapper->pages->busAddr), DMA_TEST_CHANNEL);
 
     startDMAChannel(DMA_TEST_CHANNEL);
 
@@ -185,8 +195,8 @@ void dma_test_0() {
 
     printf("destination reads: '%s'\n", (char*)virtDestPage);
 
-    clearVirtPhysPage(virtSrcPage);
-    clearVirtPhysPage(virtDestPage);
+    clearUncachedMemView(virtSrcPage);
+    clearUncachedMemView(virtDestPage);
     clearDMAControlPage(cbWrapper);
 }
 
@@ -246,14 +256,14 @@ void dma_test_1() {
     // set cb1's nextControlBlkAddr to cb2
     linkDMAControlBlocks(cbWrapper, 0, 1);
 
-    initDMAChannel(cbWrapper->cbPage, DMA_TEST_CHANNEL);
+    initDMAChannel((DMAControlBlock *)(cbWrapper->pages->busAddr), DMA_TEST_CHANNEL);
     startDMAChannel(DMA_TEST_CHANNEL);
 
     sleep(1);
     printf("destination reads: %s\n", (char*)virtDestPage);
 
-    clearUncachedMemView(virtSrcPage, srcBytes);
-    clearUncachedMemView(virtDestPage, destBytes);
+    clearUncachedMemView(virtSrcPage);
+    clearUncachedMemView(virtDestPage);
     clearDMAControlPage(cbWrapper);
 }
 
@@ -301,28 +311,28 @@ void dma_test_2() {
     initDMAControlBlock(cbWrapper, transferInfo, (uint32_t)busSrcPage, (uint32_t)busDestPage, 13);
 
     // 5th int of cbWrapper == cb1.nextControlBlockAddr
-    initDMAControlBlock(cbWrapper, transferInfo, (unit32_t)((char*)busSrcPage + 12), (uint32_t)((uint32_t*)(cbWrapper->pages->busAddr) + 5), 4);
+    initDMAControlBlock(cbWrapper, transferInfo, (uint32_t)((char*)busSrcPage + 12), (uint32_t)((uint32_t*)(cbWrapper->pages->busAddr) + 5), 4);
 
     // DANGEROUSLY create the infinite loop!!
     linkDMAControlBlocks(cbWrapper, 0, 1);
     linkDMAControlBlocks(cbWrapper, 1, 0);
 
-    initDMAChannel(cbWrapper, DMA_TEST_CHANNEL);
+    initDMAChannel((DMAControlBlock *)(cbWrapper->pages->busAddr), DMA_TEST_CHANNEL);
     startDMAChannel(DMA_TEST_CHANNEL);
 
     sleep(1);
 
     printf("destination reads: %s\n", (char*)virtDestPage);
 
-    clearUncachedMemView(virtSrcPage, srcBytes);
-    clearUncachedMemView(virtDestPage, destBytes);
+    clearUncachedMemView(virtSrcPage);
+    clearUncachedMemView(virtDestPage);
     clearDMAControlPage(cbWrapper);   
 }
 
 int main(int argc, char ** argv) {
     dmaMap = initMemMap(DMA_BASE_OFFSET, DMA_MAPSIZE);
 
-    if (argc > 1) {
+    /*if (argc > 1) {
         switch((int)argv[1]) {
             case 1: {
                 dma_test_1();
@@ -340,7 +350,10 @@ int main(int argc, char ** argv) {
     } else {
         dma_test_0();
         dma_test_1();
-    }
+    }*/
+    
+    dma_test_0_mailbox();
+    dma_test_0();
 
     munmap((void *)dmaMap, DMA_MAPSIZE);
     
