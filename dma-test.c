@@ -16,22 +16,90 @@ void addressSwapTest() {
     free (virtPtr);
 }
 
-void dma_test_wallacoloo() {
-    //int dmaCh = 5;
+void dma_test_0_wallacoloo() {
+    DEBUG_MSG("Wallacoloo approach:");
+    void * virtSrcPage, *physSrcPage;
+    initVirtPhysPage(&virtSrcPage, &physSrcPage);
+    
+    DEBUG_PTR("virtSrc", virtSrcPage);
+    DEBUG_PTR("physSrc", physSrcPage);
+    
+    void * virtDestPage, *physDestPage;
+    initVirtPhysPage(&virtDestPage, &physDestPage);
+    
+    DEBUG_PTR("virtDest", virtDestPage);
+    DEBUG_PTR("physDest", physDestPage);
+    
+    char *srcArr = (char *)virtSrcPage;
+    srcArr[0] = 'h';
+    srcArr[1] = 'e';
+    srcArr[2] = 'l';
+    srcArr[3] = 'l';
+    srcArr[4] = 'o';
+    srcArr[5] = ' ';
+    srcArr[6] = 'w';
+    srcArr[7] = 'o';
+    srcArr[8] = 'r';
+    srcArr[9] = 'l';
+    srcArr[10] = 'd';
+    srcArr[11] = '!';
+    srcArr[12] = 0;
+    
+    void * virtCBPage, * physCBPage;
+    initVirtPhysPage(&virtCBPage, &physCBPage);
+    
+    DEBUG_PTR("virtCB", virtCBPage);
+    DEBUG_PTR("physCB", physCBPage);
+    
+    DMAControlBlock * cb = (DMAControlBlock *)virtCBPage;
+
+    cb -> transferInfo = SRC_INC | DEST_INC;
+    cb -> srcAddr = (uint32_t)physSrcPage;
+    cb -> destAddr = (uint32_t)physDestPage;
+    cb -> transferLength = 13;
+    cb -> stride = 0;
+    cb -> reserved = 0;
+    cb -> nextControlBlockAddr = 0;
+
+    //enable DMA channel
+	dmaMap[DMA_GLOBAL_ENABLE_REG] |= (1 << DMA_TEST_CHANNEL);
+
+	dmaMap[DMA_CS_REG(DMA_TEST_CHANNEL)] = DMA_RESET;
+	sleep(1);
+
+	// clear debug flags
+	dmaMap[DMA_DEBUG_REG(DMA_TEST_CHANNEL)] = 7; 
+	dmaMap[DMA_CONBLK_AD_REG(DMA_TEST_CHANNEL)] = (uint32_t)physCBPage; // temporarily...
+
+    dmaMap[DMA_CS_REG(DMA_TEST_CHANNEL)] = 1;
+
+    sleep(1);
+
+    printf("destination reads: '%s'\n", (char*)virtDestPage);
+    
+    clearVirtPhysPage(virtSrcPage);
+    clearVirtPhysPage(virtDestPage);
+    clearVirtPhysPage(virtCBPage);
+}
+
+void dma_test_0_mailbox() {
+    DEBUG_MSG("Mailbox approach:");
     
     void * virtSrcPage, *physSrcPage;
-    //initVirtPhysPage(&virtSrcPage, &physSrcPage);
-    //void * virtSrcPageCached = initLockedMem(BCM_PAGESIZE);
-    //virtSrcPage = initUncachedMemView(virtSrcPageCached, BCM_PAGESIZE, USE_DIRECT_UNCACHED);
-    VirtToPhysPages * srcPages = initUncachedMemView(BCM_PAGESIZE, USE_DIRECT_UNCACHED);
-    virtSrcPage = srcPages -> virtAddr;
-    physSrcPage = (void *)(srcPages -> busAddr);
+    VirtToPhysPages srcPages = initUncachedMemView(BCM_PAGESIZE, USE_DIRECT_UNCACHED);
+    virtSrcPage = srcPages.virtAddr;
+    physSrcPage = (void *)(srcPages.busAddr);
+    
+    DEBUG_PTR("virtSrc", virtSrcPage);
+    DEBUG_PTR("physSrc", physSrcPage);
 
     void * virtDestPage, *physDestPage;
-    //initVirtPhysPage(&virtDestPage, &physDestPage);
-    VirtToPhysPages * destPages = initUncachedMemView(BCM_PAGESIZE, USE_DIRECT_UNCACHED);
-    virtDestPage = destPages -> virtAddr;
-    physDestPage = (void *)(destPages -> busAddr);
+    VirtToPhysPages destPages = initUncachedMemView(BCM_PAGESIZE, USE_DIRECT_UNCACHED);
+    virtDestPage = destPages.virtAddr;
+    physDestPage = (void *)(destPages.busAddr);
+
+    DEBUG_PTR("virtDest", virtDestPage);
+    DEBUG_PTR("physDest", physDestPage);
 
     char *srcArr = (char *)virtSrcPage;
     srcArr[0] = 'h';
@@ -49,14 +117,12 @@ void dma_test_wallacoloo() {
     srcArr[12] = 0;
 	
     void * virtCBPage, *physCBPage;
-    //initVirtPhysPage(&virtCBPage, &physCBPage);
-    VirtToPhysPages * cbPages = initUncachedMemView(BCM_PAGESIZE, USE_DIRECT_UNCACHED);
-    virtCBPage = cbPages -> virtAddr;
-    physCBPage = (void*)(cbPages -> busAddr);
-    
-    //DMAControlPageWrapper * cbWrapper = initDMAControlPage(1);
-    
-    DEBUG_MSG("wrapper struct init");
+    VirtToPhysPages cbPages = initUncachedMemView(BCM_PAGESIZE, USE_DIRECT_UNCACHED);
+    virtCBPage = cbPages.virtAddr;
+    physCBPage = (void*)(cbPages.busAddr);
+
+    DEBUG_PTR("virtCB", virtCBPage);
+    DEBUG_PTR("physCB", physCBPage);
 
     DMAControlBlock * cb = (DMAControlBlock *)virtCBPage;
 
@@ -75,8 +141,7 @@ void dma_test_wallacoloo() {
 	sleep(1);
 
 	// clear debug flags
-	dmaMap[DMA_DEBUG_REG(DMA_TEST_CHANNEL)] = 7; //DMA_READ_ERROR | DMA_FIFO_ERROR | DMA_READ_LAST_NOT_SET_ERROR;
-	// alternatively, can just to VirtToPhys, but probably not as efficient
+	dmaMap[DMA_DEBUG_REG(DMA_TEST_CHANNEL)] = 7; 
 	dmaMap[DMA_CONBLK_AD_REG(DMA_TEST_CHANNEL)] = (uint32_t)physCBPage; // temporarily...
 
     dmaMap[DMA_CS_REG(DMA_TEST_CHANNEL)] = 1;
@@ -84,13 +149,10 @@ void dma_test_wallacoloo() {
     sleep(1);
 
     printf("destination reads: '%s'\n", (char*)virtDestPage);
-
-    //clearVirtPhysPage(virtSrcPage);
-    //clearVirtPhysPage(virtDestPage);
-    clearUncachedMemView(srcPages);
-    clearUncachedMemView(destPages);
-    clearUncachedMemView(cbPages);
-    //clearDMAControlPage(cbWrapper);
+    
+    clearUncachedMemView(&srcPages);
+    clearUncachedMemView(&destPages);
+    clearUncachedMemView(&cbPages);
 }
 
 /*
@@ -216,7 +278,7 @@ void dma_test_1() {
 int main(int argc, char ** argv) {
     dmaMap = initMemMap(DMA_BASE_OFFSET, DMA_MAPSIZE);
 
-    /* if (argc > 1) {
+    /*if (argc > 1) {
         switch((int)argv[1]) {
             case 1: {
                 dma_test_1();
@@ -232,9 +294,12 @@ int main(int argc, char ** argv) {
         dma_test_1();
     } */
 
-    addressSwapTest();//dma_test_wallacoloo();
+    //dma_test_0_wallacoloo();
+    dma_test_0_mailbox();
 
     munmap((void *)dmaMap, DMA_MAPSIZE);
+    
+    closeFiles();
 
     return 0;
 }

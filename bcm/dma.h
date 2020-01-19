@@ -98,7 +98,7 @@ char priorityLevels: (x << 16)
 #define WAIT_RESP(x)   x<<3
 #define TD_MODE(x)     x<<1
 
-#define USE_DIRECT_UNCACHED 0
+#define USE_DIRECT_UNCACHED 1
 
 /* ***** CONTROL BLOCK ******
 transferLength: (in bytes)!

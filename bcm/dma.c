@@ -26,8 +26,9 @@ DMAControlPageWrapper * initDMAControlPage(uint32_t numControlBlocks) {
     DMAControlPageWrapper * cbWrapper;
     
     size_t size = ceilToPage(numControlBlocks * 32);
-
-    cbWrapper->pages = initUncachedMemView(size, USE_DIRECT_UNCACHED);
+    
+    VirtToPhysPages vtp = initUncachedMemView(size, USE_DIRECT_UNCACHED);
+    cbWrapper->pages = &vtp;
 
     //cbWrapper -> cbPage = (DMAControlBlock *)(pages->virtAddr);
 
