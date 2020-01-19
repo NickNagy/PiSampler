@@ -237,8 +237,9 @@ static void mailboxWrite(void * message) {
     if (!vciofd)
         openFiles();
     int ret;
-    if (!(ret = ioctl(vciofd, _IOWR(100, 0, char *), message)))
-        ERROR_MSG("Failed to send mailbox data.");
+    if ((ret = ioctl(vciofd, _IOWR(100, 0, char *), message)) < 0)
+        printf("ERROR: Failed to send mailbox data. Error no: %d\n", errno);
+        //ERROR_MSG("Failed to send mailbox data. Error no: %d");
 }
 
 /*static uint32_t sendMailboxMessage(uint32_t messageId, uint32_t * payload, uint32_t payloadSize) {
