@@ -249,14 +249,14 @@ VirtToBusPages initUncachedMemView(uint32_t size, bool useDirectUncached) {
 
     mem.allocationHandle = sendMailboxMessages(MAILBOX_MALLOC_TAG, mallocPayload, 3);
     mem.busAddr = sendMailboxMessage(MAILBOX_MLOCK_TAG, mem.allocationHandle);
-    mem.virtAddr = mmap(0, size, PROT_READ|PROT_WRITE, MAP_SHARED, memfd, (uint32_t)busToPhys((void *)mem.busAddr, useDirectUncached));
+    mem.virtAddr = mmap(0, mem.size, PROT_READ|PROT_WRITE, MAP_SHARED, memfd, (uint32_t)busToPhys((void *)mem.busAddr, useDirectUncached));
 
-    if (mem == MAP_FAILED) {
+    if (mem.virtAddr == MAP_FAILED) {
         printf("ERROR: failed to map virtual memory for VirtToBusPages: errno = %d\n", errno);
         exit(1);
     }
 
-    memset(mem, 0, mem.size); // zero out the virtAddr mem
+    //memset(mem.virtAddr, 0, mem.size); // zero out the virtAddr mem
 
     return mem;
 }
