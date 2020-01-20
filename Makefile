@@ -13,7 +13,7 @@ CC=gcc
 VC_IDIR = /opt/vc/include
 VC_LDIR = /opt/vc/lib
 
-CFLAGS = -g
+CFLAGS = -c -g
 IFLAGS = -I$(VC_IDIR)
 LFLAGS = -L$(VC_LDIR) -lbcm_host 
 
@@ -26,11 +26,11 @@ MAIN_OBJS = $(DMA_TEST_OBJS) bcm/gpio.o bcm/clk.o bcm/pcm.o
 all: main dma-test
 
 main: main.o $(MAIN_OBJS)
-	$(CC) $^ $(IFLAGS) $(LFLAGS) $(CFLAGS) -o $@ 
+	$(CC) $(CFLAGS) $(IFLAGS) $(LFLAGS) $^ -o $@ 
 
 dma-test: dma-test.o $(DMA_TEST_OBJS)
-	$(CC) -o $@ $^ $(CFLAGS) $(IFLAGS) $(LFLAGS) 
-
+	$(CC) $(CFLAGS) $(IFLAGS) $(LFLAGS) $^ -o $@ 
+	
 clean:
 	rm -rf dma-test main
 
