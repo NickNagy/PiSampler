@@ -7,6 +7,10 @@
 #include <bcm_host.h>
 #include <errno.h>
 
+#define ERROR_MSG(msg) printf("ERROR: %s\n", msg);
+#define FATAL_ERROR(msg) {ERROR_MSG(msg); exit(1);}
+#define DEBUG_PTR(name, ptr) printf("%s = %p\n", name, ptr);
+
 #define PAGE_SIZE 4096
 
 // Message IDs for different mailbox GPU memory allocation messages
@@ -44,7 +48,7 @@
 #define DMA_ABORT 1<<30
 
 #define SRC_INC  1<<8
-#define DEST_INC 1<<4
+#define DEST_INC 1<<4 
 
 static uint32_t bcm_base = 0;
 static uint32_t memfd = 0;
@@ -218,6 +222,9 @@ void dma_test_0() {
   GpuMemory destPages = AllocateUncachedGpuMemory(PAGE_SIZE);
   virtDestPage = destPages.virtualAddr;
   busDestPage = (void *)(destPages.busAddress);
+  
+  DEBUG_PTR("virtDest", virtDestPage);
+  DEBUG_PTR("physDest", busDestPage);
     
   sleep(1);
 
@@ -237,9 +244,9 @@ void dma_test_0() {
   srcArr[12] = 0;
 	
   void * virtCBPage, *busCBPage;
-  GpuMemory cbPages = initUncachedMemView(PAGE_SIZE);
-  virtCBPage = cbPages.virtAddr;
-  busCBPage = (void*)(cbPages.busAddr);
+  GpuMemory cbPages = AllocateUncachedGpuMemory(PAGE_SIZE);
+  virtCBPage = cbPages.virtualAddr;
+  busCBPage = (void*)(cbPages.busAddress);
 
   DEBUG_PTR("virtCB", virtCBPage);
   DEBUG_PTR("physCB", busCBPage);
@@ -254,7 +261,7 @@ void dma_test_0() {
   cb -> reserved = 0;
   cb -> nextControlBlockAddr = 0;
 
-      //enable DMA channel
+  //enable DMA channel
 	dmaMap[DMA_GLOBAL_ENABLE_REG] |= (1 << DMA_TEST_CHANNEL);
 
 	dmaMap[DMA_CS_REG(DMA_TEST_CHANNEL)] = DMA_RESET;
@@ -276,7 +283,45 @@ void dma_test_0() {
 }
 
 void dma_test_1() {
+  printf("Inconsequential test.\n");
+  
+    printf("Mailbox approach:\n");
+    
+  void * virtSrcPage, *busSrcPage;
+  GpuMemory srcPages = AllocateUncachedGpuMemory(PAGE_SIZE);
+  virtSrcPage = srcPages.virtualAddr;
+  busSrcPage = (void *)(srcPages.busAddress);
 
+  DEBUG_PTR("virtSrc", virtSrcPage);
+  DEBUG_PTR("physSrc", busSrcPage);
+
+  void * virtDestPage, *busDestPage;
+  GpuMemory destPages = AllocateUncachedGpuMemory(PAGE_SIZE);
+  virtDestPage = destPages.virtualAddr;
+  busDestPage = (void *)(destPages.busAddress);
+  
+  DEBUG_PTR("virtDest", virtDestPage);
+  DEBUG_PTR("physDest", busDestPage);
+    
+  sleep(1);
+
+  char *srcArr = (char *)virtSrcPage;
+  srcArr[0] = 'h';
+  srcArr[1] = 'e';
+  srcArr[2] = 'l';
+  srcArr[3] = 'l';
+  srcArr[4] = 'o';
+  srcArr[5] = ' ';
+  srcArr[6] = 'w';
+  srcArr[7] = 'o';
+  srcArr[8] = 'r';
+  srcArr[9] = 'l';
+  srcArr[10] = 'd';
+  srcArr[11] = '!';
+  srcArr[12] = 0;
+  
+  FreeUncachedGpuMemory(srcPages);
+  FreeUncachedGpuMemory(destPages);
 }
 
 int main() {
@@ -285,4 +330,7 @@ int main() {
   dmaMap = initMemMap(DMA_BASE_OFFSET, DMA_MAPSIZE);
 
   dma_test_0();
+  dma_test_1();
+  
+  munmap((void *)dmaMap, DMA_MAPSIZE);
 }
