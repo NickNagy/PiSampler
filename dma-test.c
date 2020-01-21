@@ -184,10 +184,12 @@ void dma_test_0() {
     srcArr[11] = '!';
     srcArr[12] = 0;
 
-    DMAControlPageWrapper * cbWrapper = initDMAControlPage(1);
-    initDMAControlBlock(cbWrapper, SRC_INC | DEST_INC, (uint32_t)busSrcPage, (uint32_t)busDestPage, 13);
+    DMAControlPageWrapper cbWrapper = initDMAControlPage(1);
+    initDMAControlBlock(&cbWrapper, SRC_INC | DEST_INC, (uint32_t)busSrcPage, (uint32_t)busDestPage, 13);
+    
+    DEBUG_PTR("start control block src addr", (uint32_t)(((DMAControlBlock *)(cbWrapper.pages.virtAddr))->srcAddr));
 	
-    initDMAChannel((DMAControlBlock *)(cbWrapper->pages->busAddr), DMA_TEST_CHANNEL);
+    initDMAChannel((DMAControlBlock *)(cbWrapper.pages.busAddr), DMA_TEST_CHANNEL);
 
     startDMAChannel(DMA_TEST_CHANNEL);
 
@@ -195,9 +197,9 @@ void dma_test_0() {
 
     printf("destination reads: '%s'\n", (char*)virtDestPage);
 
-    clearUncachedMemView(virtSrcPage);
-    clearUncachedMemView(virtDestPage);
-    clearDMAControlPage(cbWrapper);
+    clearUncachedMemView(&srcPages);
+    clearUncachedMemView(&destPages);
+    clearDMAControlPage(&cbWrapper);
 }
 
 /*
@@ -243,28 +245,28 @@ void dma_test_1() {
     srcArr[16] = 'l';
     srcArr[17] = 'o';
 
-    DMAControlPageWrapper * cbWrapper = initDMAControlPage(2);
+    DMAControlPageWrapper cbWrapper = initDMAControlPage(2);
 
     uint32_t transferInfo = SRC_INC | DEST_INC;
 
     // cb1 sets srcArr[0:5] = srcArr[13:18]
-    initDMAControlBlock(cbWrapper, transferInfo, (uint32_t)((char *)busSrcPage + 13), (uint32_t)busSrcPage, 5);
+    initDMAControlBlock(&cbWrapper, transferInfo, (uint32_t)((char *)busSrcPage + 13), (uint32_t)busSrcPage, 5);
     
     // cb2 then writes srcArr[0:13] to the dest
-    initDMAControlBlock(cbWrapper, transferInfo, (uint32_t)busSrcPage, (uint32_t)busDestPage, 13);
+    initDMAControlBlock(&cbWrapper, transferInfo, (uint32_t)busSrcPage, (uint32_t)busDestPage, 13);
 
     // set cb1's nextControlBlkAddr to cb2
-    linkDMAControlBlocks(cbWrapper, 0, 1);
+    linkDMAControlBlocks(&cbWrapper, 0, 1);
 
-    initDMAChannel((DMAControlBlock *)(cbWrapper->pages->busAddr), DMA_TEST_CHANNEL);
+    initDMAChannel((DMAControlBlock *)(cbWrapper.pages.busAddr), DMA_TEST_CHANNEL);
     startDMAChannel(DMA_TEST_CHANNEL);
 
     sleep(1);
     printf("destination reads: %s\n", (char*)virtDestPage);
 
-    clearUncachedMemView(virtSrcPage);
-    clearUncachedMemView(virtDestPage);
-    clearDMAControlPage(cbWrapper);
+    clearUncachedMemView(&srcPages);
+    clearUncachedMemView(&destPages);
+    clearDMAControlPage(&cbWrapper);
 }
 
 /* 
@@ -307,26 +309,26 @@ void dma_test_2() {
 
     uint32_t transferInfo = SRC_INC | DEST_INC;
 
-    DMAControlPageWrapper * cbWrapper = initDMAControlPage(2);
-    initDMAControlBlock(cbWrapper, transferInfo, (uint32_t)busSrcPage, (uint32_t)busDestPage, 13);
+    DMAControlPageWrapper cbWrapper = initDMAControlPage(2);
+    initDMAControlBlock(&cbWrapper, transferInfo, (uint32_t)busSrcPage, (uint32_t)busDestPage, 13);
 
     // 5th int of cbWrapper == cb1.nextControlBlockAddr
-    initDMAControlBlock(cbWrapper, transferInfo, (uint32_t)((char*)busSrcPage + 12), (uint32_t)((uint32_t*)(cbWrapper->pages->busAddr) + 5), 4);
+    initDMAControlBlock(&cbWrapper, transferInfo, (uint32_t)((char*)busSrcPage + 12), (uint32_t)((uint32_t*)(cbWrapper.pages.busAddr) + 5), 4);
 
     // DANGEROUSLY create the infinite loop!!
-    linkDMAControlBlocks(cbWrapper, 0, 1);
-    linkDMAControlBlocks(cbWrapper, 1, 0);
+    linkDMAControlBlocks(&cbWrapper, 0, 1);
+    linkDMAControlBlocks(&cbWrapper, 1, 0);
 
-    initDMAChannel((DMAControlBlock *)(cbWrapper->pages->busAddr), DMA_TEST_CHANNEL);
+    initDMAChannel((DMAControlBlock *)(cbWrapper.pages.busAddr), DMA_TEST_CHANNEL);
     startDMAChannel(DMA_TEST_CHANNEL);
 
     sleep(1);
 
     printf("destination reads: %s\n", (char*)virtDestPage);
 
-    clearUncachedMemView(virtSrcPage);
-    clearUncachedMemView(virtDestPage);
-    clearDMAControlPage(cbWrapper);   
+    clearUncachedMemView(&srcPages);
+    clearUncachedMemView(&destPages);
+    clearDMAControlPage(&cbWrapper);  
 }
 
 int main(int argc, char ** argv) {

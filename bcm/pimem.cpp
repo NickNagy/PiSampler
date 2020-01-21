@@ -204,7 +204,7 @@ static void mailboxWrite(void * message) {
 static uint32_t sendMailboxMessage(uint32_t messageId, uint32_t payload) {
     MailboxMessage<1> msg(messageId);
     msg.payload[0] = payload;
-    SendMailbox(&msg);
+    mailboxWrite(&msg);
     return msg.result;
 }
 
@@ -213,7 +213,7 @@ static uint32_t sendMailboxMessages(uint32_t messageId, uint32_t payload0, uint3
     msg.payload[0] = payload0;
     msg.payload[1] = payload1;
     msg.payload[2] = payload2;
-    SendMailbox(&msg);
+    mailboxWrite(&msg);
     return msg.result;
 }
 

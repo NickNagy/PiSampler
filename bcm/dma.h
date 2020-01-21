@@ -128,14 +128,14 @@ typedef struct DMAControlBlock {
 
 typedef struct DMAControlPageWrapper {
     //DMAControlBlock * cbPage;
-    VirtToBusPages * pages;
+    VirtToBusPages pages;
     uint32_t controlBlocksTotal;
     uint32_t controlBlocksUsed;
 } DMAControlPageWrapper;
 
 volatile uint32_t * initDMAMap(char numDMARegs);
 
-DMAControlPageWrapper * initDMAControlPage(uint32_t numControlBlocks);
+DMAControlPageWrapper initDMAControlPage(uint32_t numControlBlocks);
 
 void clearDMAControlPage(DMAControlPageWrapper * cbWrapper);
 

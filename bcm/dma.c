@@ -22,25 +22,26 @@ initializes and returns a ptr to a DMAControlPageWrapper struct.
 The struct holds a DMAControlBlock * pointing to contiguous uncached memory, the size of which is determined by numControlBlocks
 It also stores two unsigned ints: controlBlocksTotal (== numControlBlocks), and controlBlocksUsed (which is updated as DMAControlBlocks are initialized in this wrapper)
 */
-DMAControlPageWrapper * initDMAControlPage(uint32_t numControlBlocks) {
-    DMAControlPageWrapper * cbWrapper;
+DMAControlPageWrapper initDMAControlPage(uint32_t numControlBlocks) {
+    DMAControlPageWrapper cbWrapper;
     
     size_t size = ceilToPage(numControlBlocks * 32);
     
-    VirtToBusPages vtp = initUncachedMemView(size, USE_DIRECT_UNCACHED);
-    cbWrapper->pages = &vtp;
-
-    //cbWrapper -> cbPage = (DMAControlBlock *)(pages->virtAddr);
-
-    //DEBUG_VAL("address of page", &(cbWrapper -> cbPage));
-    cbWrapper -> controlBlocksTotal = numControlBlocks;
-    cbWrapper -> controlBlocksUsed = 0;
+    //VirtToBusPages vtp = initUncachedMemView(size, USE_DIRECT_UNCACHED);
+    
+    cbWrapper.pages = initUncachedMemView(size, USE_DIRECT_UNCACHED);//vtp;
+    
+    cbWrapper.controlBlocksTotal = numControlBlocks;
+    cbWrapper.controlBlocksUsed = 0;
+    
+    DEBUG_MSG("successful return");
+    
     return cbWrapper;
 }
 
 // doesn't actually delete the struct or ptr, but frees up the cbPage mem
 void clearDMAControlPage(DMAControlPageWrapper * cbWrapper) {
-    clearUncachedMemView(cbWrapper -> pages);
+    clearUncachedMemView(&(cbWrapper -> pages));
     cbWrapper -> controlBlocksTotal = 0;
     cbWrapper -> controlBlocksUsed = 0;
 }
@@ -53,8 +54,8 @@ void linkDMAControlBlocks (DMAControlPageWrapper * cbWrapper, uint32_t cb1, uint
         ERROR_MSG("Control block does not exist in this page!");
         exit(1);
     }
-    DMAControlBlock * cbVirt = (DMAControlBlock *)(cbWrapper -> pages -> virtAddr);
-    DMAControlBlock * cbBus = (DMAControlBlock *)(cbWrapper -> pages -> busAddr);
+    DMAControlBlock * cbVirt = (DMAControlBlock *)(cbWrapper -> pages.virtAddr);
+    DMAControlBlock * cbBus = (DMAControlBlock *)(cbWrapper -> pages.busAddr);
     cbVirt[cb1].nextControlBlockAddr = (uint32_t)&(cbBus[cb2]);
 }
 
@@ -69,7 +70,7 @@ void initDMAControlBlock (DMAControlPageWrapper * cbWrapper, uint32_t transferIn
         exit(1);
     }
     uint32_t idx = cbWrapper -> controlBlocksUsed;
-    DMAControlBlock * cbVirt = (DMAControlBlock *)(cbWrapper -> pages -> virtAddr);
+    DMAControlBlock * cbVirt = (DMAControlBlock *)(cbWrapper -> pages.virtAddr);
     cbVirt[idx].transferInfo = transferInfo;
     cbVirt[idx].srcAddr = physSrcAddr;
     cbVirt[idx].destAddr = physDestAddr;
