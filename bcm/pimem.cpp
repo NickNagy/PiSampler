@@ -202,36 +202,19 @@ static void mailboxWrite(void * message) {
 }
 
 static uint32_t sendMailboxMessage(uint32_t messageId, uint32_t payload) {
-    uint32_t message[7];
-    
-    message[0] = 28; // size in bytes
-    message[1] = 0; // request code
-    message[2] = messageId;
-    message[3] = 4; // payload size in bytes
-    message[4] = 4;
-    message[5] = payload;
-    message[6] = 0; // message end
-    
-    mailboxWrite(&message);
-    return message[5]; // result
+    MailboxMessage<1> msg(messageId);
+    msg.payload[0] = payload;
+    SendMailbox(&msg);
+    return msg.result;
 }
 
-static uint32_t sendMailboxMessages(uint32_t messageId, uint32_t payload[], uint32_t payloadSize) {
-    uint32_t payloadSizeInBytes = payloadSize << 2;    
-    uint32_t message[7];
-    
-    message[0] = 24 + payloadSizeInBytes;
-    message[1] = 0;
-    message[2] = messageId;
-    message[3] = payloadSizeInBytes;
-    message[4] = payloadSizeInBytes;
-    for (uint32_t i = 0; i < payloadSize; i++) {
-        message[5 + i] = payload[i];
-    }
-    message[5 + payloadSize] = 0;
-    
-    mailboxWrite(&message);
-    return message[5];
+static uint32_t sendMailboxMessages(uint32_t messageId, uint32_t payload0, uint32_t payload1, uint32_t payload2) {
+    MailboxMessage<3> msg(messageId);
+    msg.payload[0] = payload0;
+    msg.payload[1] = payload1;
+    msg.payload[2] = payload2;
+    SendMailbox(&msg);
+    return msg.result;
 }
 
 // TODO: zero out returned mem?
@@ -241,13 +224,13 @@ VirtToBusPages initUncachedMemView(uint32_t size, bool useDirectUncached) {
 
     uint32_t cacheFlags = useDirectUncached ? MAILBOX_MEM_FLAG_DIRECT : MAILBOX_MEM_FLAG_COHERENT;
 
-    uint32_t mallocPayload[3] = {
+    /* uint32_t mallocPayload[3] = {
         mem.size,
         BCM_PAGESIZE,
         cacheFlags
-    };
+    };*/
 
-    mem.allocationHandle = sendMailboxMessages(MAILBOX_MALLOC_TAG, mallocPayload, 3);
+    mem.allocationHandle = sendMailboxMessages(MAILBOX_MALLOC_TAG, mem.size, BCM_PAGESIZE, cacheFlags);
     mem.busAddr = sendMailboxMessage(MAILBOX_MLOCK_TAG, mem.allocationHandle);
     mem.virtAddr = mmap(0, mem.size, PROT_READ|PROT_WRITE, MAP_SHARED, memfd, (uint32_t)busToPhys((void *)mem.busAddr, useDirectUncached));
 
@@ -255,8 +238,6 @@ VirtToBusPages initUncachedMemView(uint32_t size, bool useDirectUncached) {
         printf("ERROR: failed to map virtual memory for VirtToBusPages: errno = %d\n", errno);
         exit(1);
     }
-
-    //memset(mem.virtAddr, 0, mem.size); // zero out the virtAddr mem
 
     return mem;
 }

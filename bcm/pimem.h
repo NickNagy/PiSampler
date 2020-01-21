@@ -30,12 +30,31 @@
 #define MAILBOX_MEM_FLAG_DIRECT   0x4 // 0xC alias uncached
 #define MAILBOX_MEM_FLAG_COHERENT 0x8 // 0x8 alias (L2 - coherent) * datasheet describes this as L2-only
 
+// structs from: https://github.com/Wallacoloo/Raspberry-Pi-DMA-Example/issues/3
 typedef struct VirtToBusPages {
+    uint32_t allocationHandle;
     void * virtAddr;
     uintptr_t busAddr;
     uint32_t size;
-    uint32_t allocationHandle;
 } VirtToBusPages;
+
+// Defines the structure of a Mailbox message
+template<int PayloadSize>
+struct MailboxMessage
+{
+  MailboxMessage(uint32_t messageId):messageSize(sizeof(*this)), requestCode(0), messageId(messageId), messageSizeBytes(sizeof(uint32_t)*PayloadSize), dataSizeBytes(sizeof(uint32_t)*PayloadSize), messageEndSentinel(0) {}
+  uint32_t messageSize;
+  uint32_t requestCode;
+  uint32_t messageId;
+  uint32_t messageSizeBytes;
+  uint32_t dataSizeBytes;
+  union
+  {
+    uint32_t payload[PayloadSize];
+    uint32_t result;
+  };
+  uint32_t messageEndSentinel;
+};
 
 static bool openFiles();
 
@@ -63,7 +82,7 @@ uintptr_t virtToPhys(void * virtAddr);
 
 uintptr_t virtToUncachedBus(void * virtAddr, bool useDirectUncached);
 
-/* Mailbox interface */
+/* Mailbox interface (source: https://github.com/Wallacoloo/Raspberry-Pi-DMA-Example/issues/3)*/
 
 uintptr_t busToPhys(void * busAddr, bool useDirectUncached);
 
@@ -71,7 +90,7 @@ static void mailboxWrite(void * message);
 
 static uint32_t sendMailboxMessage(uint32_t messageId, uint32_t payload);
 
-static uint32_t sendMailboxMessages(uint32_t messageId, uint32_t payload[], uint32_t payloadSize);
+static uint32_t sendMailboxMessages(uint32_t messageId, uint32_t payload0, uint32_t payload1, uint32_t payload2);
 
 VirtToBusPages initUncachedMemView(uint32_t size, bool useDirectUncached);
 
