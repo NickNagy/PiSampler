@@ -102,12 +102,26 @@ static void initDMAMode(uint8_t dataWidth, uint8_t thresh, bool packedMode) {
     pcmMap[PCM_DREQ_REG] = ((thresh + 1) << 24) | ((thresh + 1)<<16) | (thresh << 8) | thresh;
 
     // read from FIFO to here, and write from here to FIFO
-    void * bufferPage = initUncachedMemView(initLockedMem(BCM_PAGESIZE), BCM_PAGESIZE, USE_DIRECT_UNCACHED);
+    VirtToBusPages bufferPages = initUncachedMemView(BCM_PAGESIZE, USE_DIRECT_UNCACHED);
+    void * virtBufferPages = bufferPages.virtAddr;
+    void * busBufferPages = (void *)bufferPages.busAddr;
     
     // peripheral addresses must be physical
     //uint32_t bcm_base = getBCMBase();
     uint32_t fifoPhysAddr = BUS_BASE + PCM_BASE_OFFSET + (PCM_FIFO_REG<<2); // PCM_FIFO_REG is macro defined by int offset, need byte offset
+    uint32_t csPhysAddr = BUS_BASE + PCM_BASE_OFFSET + (PCM_CTRL_REG<<2);
+
     if (DEBUG) printf("FIFO physical address = %x\n", fifoPhysAddr);
+
+    // these bytes are the sources for two DMA control blocks, whose destinations are the PCM_CTRL_REG. This way the DMA can automatically
+    // update TXON and RXON each time it switches between reading from the FIFO and writing to the FIFO
+    uint8_t dmaRxOnByte = (uint8_t)(pcmMap[PCM_CTRL_REG] & 0xF9) | RXON;
+    uint8_t dmaTxOnByte = (uint8_t)(pcmMap[PCM_CTRL_REG] & 0xF9) | TXON;
+
+    uint32_t lastByteIdx = sizeof(virtBufferPages) - 1;
+
+    (char *)virtBufferPages[lastByteIdx - 1] = dmaRxOnByte;
+    (char *)virtBufferPages[lastByteIdx] = dmaTxOnByte;
     
     // TODO: verify transfer length line
     // if using packed mode, then a single data transfer is 2-channel, therefore twice the data width
@@ -118,15 +132,30 @@ static void initDMAMode(uint8_t dataWidth, uint8_t thresh, bool packedMode) {
 
     DMAControlPageWrapper * cbWrapper = initDMAControlPage(2);
 
-    insertDMAControlBlock (cbWrapper, txTransferInfo, virtToUncachedPhys(bufferPage, USE_DIRECT_UNCACHED), fifoPhysAddr, transferLength, 0);
-    insertDMAControlBlock (cbWrapper, rxTransferInfo, fifoPhysAddr, virtToUncachedPhys(bufferPage, USE_DIRECT_UNCACHED), transferLength, 1);
+    /*
+    4 DMA Control blocks:
+
+    CB0: write from buffer pages to FIFO (when TXDREQ high)
+    CB1: set TX OFF and RX ON in the PCM CTRL REG
+    CB2: read from FIFO to buffer pages (when RXDREQ high)
+    CB3: set TX ON and RX OFF in the PCM CTRL REG
+
+    (repeat)
+    */
+
+    
+    insertDMAControlBlock (cbWrapper, txTransferInfo, busBufferPages, fifoPhysAddr, transferLength, 0);
+    insertDMAControlBlock (cbWrapper, 0, (uint32_t)&((char *)busBufferPages[lastByteIdx-1]), csPhysAddr, 1, 1);
+    insertDMAControlBlock (cbWrapper, rxTransferInfo, fifoPhysAddr, busBufferPages, transferLength, 2);
+    insertDMAControlBlock (cbWrapper, 0, (uint32_t)&((char *)busBufferPages[lastByteIdx]), csPhysAddr, 1, 3);
+    
     VERBOSE_MSG("Control blocks set.\n");
     
-    // create loop b/w two control blocks
-    linkDMAControlBlocks(cbWrapper, 1, 0);
+    // create loop
+    linkDMAControlBlocks(cbWrapper, 3, 0);
     VERBOSE_MSG("Control block loop(s) set.\n");
 
-    initDMAChannel(cbWrapper->cbPage, (uint8_t)RXDMA);
+    initDMAChannel((DMAControlBlock *)(cbWrapper->pages.busAddr), 5);
     VERBOSE_MSG("Control blocks loaded into DMA registers.\nDMA mode successfully initialized.\n");
 }
 
@@ -210,7 +239,7 @@ void startPCM() {
     VERBOSE_MSG("Starting PCM...\n");
 
     startDMAChannel((uint8_t)RXDMA);
-    pcmMap[PCM_CTRL_REG] |= RXONTXON;
+    pcmMap[PCM_CTRL_REG] |= TXON;
     
     DEBUG_REG("PCM ctrl reg w/ tx and rx on", pcmMap[PCM_CTRL_REG]);
     VERBOSE_MSG("Running...\n");
