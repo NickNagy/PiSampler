@@ -27,9 +27,7 @@ DMAControlPageWrapper initDMAControlPage(uint32_t numControlBlocks) {
     
     size_t size = ceilToPage(numControlBlocks * 32);
     
-    //VirtToBusPages vtp = initUncachedMemView(size, USE_DIRECT_UNCACHED);
-    
-    cbWrapper.pages = initUncachedMemView(size, USE_DIRECT_UNCACHED);//vtp;
+    cbWrapper.pages = initUncachedMemView(size, USE_DIRECT_UNCACHED);
     
     cbWrapper.controlBlocksTotal = numControlBlocks;
     cbWrapper.controlBlocksUsed = 0;
@@ -74,7 +72,7 @@ void initDMAControlBlock (DMAControlPageWrapper * cbWrapper, uint32_t transferIn
     cbVirt[idx].transferInfo = transferInfo;
     cbVirt[idx].srcAddr = physSrcAddr;
     cbVirt[idx].destAddr = physDestAddr;
-    cbVirt[idx].transferInfo = bytesToTransfer;
+    cbVirt[idx].transferLength = bytesToTransfer;
     cbWrapper -> controlBlocksUsed++;
 }
 
