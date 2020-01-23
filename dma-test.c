@@ -101,6 +101,8 @@ void dma_test_0() {
     DEBUG_PTR("virtDest", virtDestPage);
     DEBUG_PTR("physDest", busDestPage);
     
+    printf("(Before transfer) destination reads: %s\n", (char*)virtDestPage);
+    
     sleep(1);
 
     char *srcArr = (char *)virtSrcPage;
@@ -129,7 +131,7 @@ void dma_test_0() {
 
     sleep(1);
 
-    printf("destination reads: '%s'\n", (char*)virtDestPage);
+    printf("(After transfer) destination reads: '%s'\n", (char*)virtDestPage);
 
     clearUncachedMemView(&srcPages);
     clearUncachedMemView(&destPages);
@@ -158,6 +160,8 @@ void dma_test_1() {
     VirtToBusPages destPages = initUncachedMemView(destBytes, USE_DIRECT_UNCACHED);
     virtDestPage = destPages.virtAddr;
     busDestPage = (void *)destPages.busAddr;
+
+    printf("(Before transfer) destination reads: %s\n", (char*)virtDestPage);
 
     char *srcArr = (char *)virtSrcPage;
     srcArr[0] = 'u';
@@ -196,7 +200,7 @@ void dma_test_1() {
     startDMAChannel(DMA_TEST_CHANNEL);
 
     sleep(1);
-    printf("destination reads: %s\n", (char*)virtDestPage);
+    printf("(After transfer) destination reads: %s\n", (char*)virtDestPage);
 
     clearUncachedMemView(&srcPages);
     clearUncachedMemView(&destPages);
@@ -222,6 +226,8 @@ void dma_test_2() {
     busSrcPage = (void*)srcPages.busAddr;
     virtDestPage = destPages.virtAddr;
     busDestPage = (void *)destPages.busAddr;
+
+    printf("(Before transfer) destination reads: %s\n", (char*)virtDestPage);
 
     char *srcArr = (char *)virtSrcPage;
     srcArr[0] = 'u';
@@ -258,7 +264,7 @@ void dma_test_2() {
 
     sleep(1);
 
-    printf("destination reads: %s\n", (char*)virtDestPage);
+    printf("(After transfer) destination reads: %s\n", (char*)virtDestPage);
 
     clearUncachedMemView(&srcPages);
     clearUncachedMemView(&destPages);
@@ -268,7 +274,7 @@ void dma_test_2() {
 int main(int argc, char ** argv) {
     dmaMap = initMemMap(DMA_BASE_OFFSET, DMA_MAPSIZE);
 
-    /*if (argc > 1) {
+    if (argc > 1) {
         switch((int)argv[1]) {
             case 1: {
                 dma_test_1();
@@ -286,10 +292,8 @@ int main(int argc, char ** argv) {
     } else {
         dma_test_0();
         dma_test_1();
-    }*/
-    
-    dma_test_0_mailbox();
-    dma_test_0();
+        dma_test_2();
+    }
 
     munmap((void *)dmaMap, DMA_MAPSIZE);
     
