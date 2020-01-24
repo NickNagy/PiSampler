@@ -15,28 +15,18 @@ static bool checkFrameAndChannelWidth(pcmExternInterface * ext) {
     return 0;
 }
 
-static bool checkInitParams(pcmExternInterface * ext, uint8_t thresh) {
-    bool error = 0;
-    if (!ext->isMasterDevice && !checkFrameAndChannelWidth(ext)) {
-        printf("ERROR: incompatible frame lengths and data widths.\n");
-        error = 1;
-    }
-    if (ext->numChannels < 1 || ext->numChannels > 2) {
-        printf("ERROR: valid number of channels are 1 or 2.\n");
-        error = 1;
-    }
+static void checkInitParams(pcmExternInterface * ext, uint8_t thresh) {
+    if (!ext->isMasterDevice && !checkFrameAndChannelWidth(ext))
+        FATAL_ERROR("incompatible frame lengths and data widths.")
+    if (ext->numChannels < 1 || ext->numChannels > 2) 
+        FATAL_ERROR("valid number of channels are 1 or 2.");
     if (ext->dataWidth > 32) {
-        printf("ERROR: maximum data width available is 32 bits.\n");
-        error = 1;
+        FATAL_ERROR("maximum data width available is 32 bits.");
     } else if (ext->dataWidth % 8) {
-        printf("ERROR: please set data width to be a multiple of 8 bits.\n");
-        error = 1;
+        FATAL_ERROR("please set data width to be a multiple of 8 bits.");
     }
-    if (thresh >= 128) {
-        printf("ERROR: threshold must be six-bit value for DMA mode.\n");
-        error = 1;
-    }
-    return !error;
+    if (thresh >= 128)
+        FATAL_ERROR("threshold must be six-bit value for DMA mode.")
 }
 
 /*
@@ -182,10 +172,9 @@ void initPCM(pcmExternInterface * ext, uint8_t thresh, bool packedMode) {
         printf("ERROR: PCM interface is currently running.\nAborting...\n");
         return;
     }
-    if (!checkInitParams(ext, thresh)) {
-        printf("Aborting...\n");
-        return;
-    }
+    
+    checkInitParams(ext, thresh);
+    
     if (packedMode & ext->numChannels != 2)
         packedMode = 0;
     printf("Initializing PCM interface...");
@@ -231,10 +220,8 @@ void initPCM(pcmExternInterface * ext, uint8_t thresh, bool packedMode) {
 }
 
 void startPCM() {
-    if (!pcmInitialized) {
-        printf("ERROR: PCM interface has not been initialized yet.\n");
-        return;
-    }
+    if (!pcmInitialized)
+        FATAL_ERROR("PCM interface was not initialized.")
     pcmRunning = 1;
     VERBOSE_MSG("Starting PCM...\n");
 
