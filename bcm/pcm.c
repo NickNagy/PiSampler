@@ -120,8 +120,8 @@ static void initDMAMode(uint8_t dataWidth, uint8_t thresh, bool packedMode) {
 
     uint32_t lastByteIdx = sizeof(virtBufferPages) - 1;
 
-    (char *)virtBufferPages[lastByteIdx - 1] = dmaRxOnByte;
-    (char *)virtBufferPages[lastByteIdx] = dmaTxOnByte;
+    ((char *)virtBufferPages)[lastByteIdx - 1] = dmaRxOnByte;
+    ((char *)virtBufferPages)[lastByteIdx] = dmaTxOnByte;
     
     // TODO: verify transfer length line
     // if using packed mode, then a single data transfer is 2-channel, therefore twice the data width
@@ -130,7 +130,7 @@ static void initDMAMode(uint8_t dataWidth, uint8_t thresh, bool packedMode) {
     uint32_t rxTransferInfo = (PERMAP(RXPERMAP) | SRC_DREQ | DEST_INC);
     uint32_t txTransferInfo = (PERMAP(TXPERMAP) | DEST_DREQ | SRC_INC);
 
-    DMAControlPageWrapper * cbWrapper = initDMAControlPage(2);
+    DMAControlPageWrapper cbWrapper = initDMAControlPage(2);
 
     /*
     4 DMA Control blocks:
@@ -144,18 +144,18 @@ static void initDMAMode(uint8_t dataWidth, uint8_t thresh, bool packedMode) {
     */
 
     
-    insertDMAControlBlock (cbWrapper, txTransferInfo, busBufferPages, fifoPhysAddr, transferLength, 0);
-    insertDMAControlBlock (cbWrapper, 0, (uint32_t)&((char *)busBufferPages[lastByteIdx-1]), csPhysAddr, 1, 1);
-    insertDMAControlBlock (cbWrapper, rxTransferInfo, fifoPhysAddr, busBufferPages, transferLength, 2);
-    insertDMAControlBlock (cbWrapper, 0, (uint32_t)&((char *)busBufferPages[lastByteIdx]), csPhysAddr, 1, 3);
+    insertDMAControlBlock (&cbWrapper, txTransferInfo, (uint32_t)busBufferPages, fifoPhysAddr, transferLength, 0);
+    insertDMAControlBlock (&cbWrapper, 0, (uint32_t)&(((char *)busBufferPages)[lastByteIdx-1]), csPhysAddr, 1, 1);
+    insertDMAControlBlock (&cbWrapper, rxTransferInfo, fifoPhysAddr, (uint32_t)busBufferPages, transferLength, 2);
+    insertDMAControlBlock (&cbWrapper, 0, (uint32_t)&(((char *)busBufferPages)[lastByteIdx]), csPhysAddr, 1, 3);
     
     VERBOSE_MSG("Control blocks set.\n");
     
     // create loop
-    linkDMAControlBlocks(cbWrapper, 3, 0);
+    linkDMAControlBlocks(&cbWrapper, 3, 0);
     VERBOSE_MSG("Control block loop(s) set.\n");
 
-    initDMAChannel((DMAControlBlock *)(cbWrapper->pages.busAddr), 5);
+    initDMAChannel((DMAControlBlock *)(cbWrapper.pages.busAddr), 5);
     VERBOSE_MSG("Control blocks loaded into DMA registers.\nDMA mode successfully initialized.\n");
 }
 
