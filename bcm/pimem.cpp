@@ -9,7 +9,7 @@ static uint32_t vciofd = 0;
 initializes memfd and pagemapfd, which are used by multiple functions in this file
 returns 0 if successful, 1 otherwise
 */
-static bool openFiles() {
+bool openFiles() {
     if (!memfd) {
         if((memfd = open("/dev/mem", O_RDWR | O_SYNC)) < 0) {
             ERROR_MSG("Failure to access /dev/mem."); 
