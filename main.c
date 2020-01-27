@@ -5,6 +5,9 @@
 #include "bcm/pcm.h"
 #include "globals.h"
 
+#define MCLK 0
+#define MCLK_FREQ 11289000
+
 int main(int agrc, char ** argv) {
 	pcmExternInterface pmod;
 	
@@ -18,13 +21,17 @@ int main(int agrc, char ** argv) {
 	
 	openFiles();
 	
-	initClock(0, 11289000, 1, PLLD);
+	initClock(MCLK, MCLK_FREQ, 1, PLLD);
 	
 	initPCM(&pmod, 0, 1);
 	
 	sleep(1);
 	
+	startClock(MCLK);
+	
 	startPCM();
+	
+	sleep(10);
 	
 	closeFiles();
 }

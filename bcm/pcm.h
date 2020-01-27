@@ -53,7 +53,7 @@ typedef struct pcmExternInterface {
 
 static bool checkFrameAndChannelWidth(pcmExternInterface * ext);
 
-static bool checkInitParams(pcmExternInterface * ext, uint8_t thresh);
+static void checkInitParams(pcmExternInterface * ext, uint8_t thresh);
 
 static int32_t getSyncDelay();
 

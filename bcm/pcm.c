@@ -15,28 +15,18 @@ static bool checkFrameAndChannelWidth(pcmExternInterface * ext) {
     return 0;
 }
 
-static bool checkInitParams(pcmExternInterface * ext, uint8_t thresh) {
-    bool error = 0;
-    if (!ext->isMasterDevice && !checkFrameAndChannelWidth(ext)) {
-        printf("ERROR: incompatible frame lengths and data widths.\n");
-        error = 1;
-    }
-    if (ext->numChannels < 1 || ext->numChannels > 2) {
-        printf("ERROR: valid number of channels are 1 or 2.\n");
-        error = 1;
-    }
+static void checkInitParams(pcmExternInterface * ext, uint8_t thresh) {
+    if (!ext->isMasterDevice && !checkFrameAndChannelWidth(ext))
+        FATAL_ERROR("incompatible frame lengths and data widths.")
+    if (ext->numChannels < 1 || ext->numChannels > 2) 
+        FATAL_ERROR("valid number of channels are 1 or 2.");
     if (ext->dataWidth > 32) {
-        printf("ERROR: maximum data width available is 32 bits.\n");
-        error = 1;
+        FATAL_ERROR("maximum data width available is 32 bits.");
     } else if (ext->dataWidth % 8) {
-        printf("ERROR: please set data width to be a multiple of 8 bits.\n");
-        error = 1;
+        FATAL_ERROR("please set data width to be a multiple of 8 bits.");
     }
-    if (thresh >= 128) {
-        printf("ERROR: threshold must be six-bit value for DMA mode.\n");
-        error = 1;
-    }
-    return !error;
+    if (thresh >= 128)
+        FATAL_ERROR("threshold must be six-bit value for DMA mode.")
 }
 
 /*
@@ -127,10 +117,10 @@ static void initDMAMode(uint8_t dataWidth, uint8_t thresh, bool packedMode) {
     // if using packed mode, then a single data transfer is 2-channel, therefore twice the data width
     uint32_t transferLength = packedMode ? dataWidth >> 1 : dataWidth >> 2; // represented in bytes
     
-    uint32_t rxTransferInfo = (PERMAP(RXPERMAP) | SRC_DREQ | DEST_INC);
-    uint32_t txTransferInfo = (PERMAP(TXPERMAP) | DEST_DREQ | SRC_INC);
+    uint32_t rxTransferInfo = (PERMAP(RXPERMAP) | SRC_DREQ | SRC_INC | DEST_INC);
+    uint32_t txTransferInfo = (PERMAP(TXPERMAP) | DEST_DREQ | SRC_INC | DEST_INC);
 
-    DMAControlPageWrapper cbWrapper = initDMAControlPage(2);
+    DMAControlPageWrapper cbWrapper = initDMAControlPage(4);
 
     /*
     4 DMA Control blocks:
@@ -143,15 +133,23 @@ static void initDMAMode(uint8_t dataWidth, uint8_t thresh, bool packedMode) {
     (repeat)
     */
 
-    
-    insertDMAControlBlock (&cbWrapper, txTransferInfo, (uint32_t)busBufferPages, fifoPhysAddr, transferLength, 0);
+    // for now, insertDMAControlBlock() is an internally inconsistent function, and I would not use it.
+    /*insertDMAControlBlock (&cbWrapper, txTransferInfo, (uint32_t)busBufferPages, fifoPhysAddr, transferLength, 0);
     insertDMAControlBlock (&cbWrapper, 0, (uint32_t)&(((char *)busBufferPages)[lastByteIdx-1]), csPhysAddr, 1, 1);
     insertDMAControlBlock (&cbWrapper, rxTransferInfo, fifoPhysAddr, (uint32_t)busBufferPages, transferLength, 2);
-    insertDMAControlBlock (&cbWrapper, 0, (uint32_t)&(((char *)busBufferPages)[lastByteIdx]), csPhysAddr, 1, 3);
+    insertDMAControlBlock (&cbWrapper, 0, (uint32_t)&(((char *)busBufferPages)[lastByteIdx]), csPhysAddr, 1, 3);*/
+    
+    initDMAControlBlock(&cbWrapper, txTransferInfo, (uint32_t)busBufferPages, fifoPhysAddr, transferLength);
+    initDMAControlBlock(&cbWrapper, 0, (uint32_t)&(((char *)busBufferPages)[lastByteIdx-1]), csPhysAddr, 1);
+    initDMAControlBlock(&cbWrapper, rxTransferInfo, fifoPhysAddr, (uint32_t)busBufferPages, transferLength);
+    initDMAControlBlock(&cbWrapper, 0, (uint32_t)&(((char *)busBufferPages)[lastByteIdx]), csPhysAddr, 1);
     
     VERBOSE_MSG("Control blocks set.\n");
     
     // create loop
+    linkDMAControlBlocks(&cbWrapper, 0, 1);
+    linkDMAControlBlocks(&cbWrapper, 1, 2);
+    linkDMAControlBlocks(&cbWrapper, 2, 3);    
     linkDMAControlBlocks(&cbWrapper, 3, 0);
     VERBOSE_MSG("Control block loop(s) set.\n");
 
@@ -182,10 +180,9 @@ void initPCM(pcmExternInterface * ext, uint8_t thresh, bool packedMode) {
         printf("ERROR: PCM interface is currently running.\nAborting...\n");
         return;
     }
-    if (!checkInitParams(ext, thresh)) {
-        printf("Aborting...\n");
-        return;
-    }
+    
+    checkInitParams(ext, thresh);
+    
     if (packedMode & ext->numChannels != 2)
         packedMode = 0;
     printf("Initializing PCM interface...");
@@ -231,10 +228,8 @@ void initPCM(pcmExternInterface * ext, uint8_t thresh, bool packedMode) {
 }
 
 void startPCM() {
-    if (!pcmInitialized) {
-        printf("ERROR: PCM interface has not been initialized yet.\n");
-        return;
-    }
+    if (!pcmInitialized)
+        FATAL_ERROR("PCM interface was not initialized.")
     pcmRunning = 1;
     VERBOSE_MSG("Starting PCM...\n");
 

@@ -48,10 +48,8 @@ void clearDMAControlPage(DMAControlPageWrapper * cbWrapper) {
 set the nextControlBlockAddr of cb1 to point to cb2
 */
 void linkDMAControlBlocks (DMAControlPageWrapper * cbWrapper, uint32_t cb1, uint32_t cb2) {
-    if (cb1 > cbWrapper->controlBlocksTotal || cb2 > cbWrapper-> controlBlocksTotal) {
-        ERROR_MSG("Control block does not exist in this page!");
-        exit(1);
-    }
+    if (cb1 > cbWrapper->controlBlocksTotal || cb2 > cbWrapper-> controlBlocksTotal)
+        FATAL_ERROR("Control block does not exist in this page!")
     DMAControlBlock * cbVirt = (DMAControlBlock *)(cbWrapper -> pages.virtAddr);
     DMAControlBlock * cbBus = (DMAControlBlock *)(cbWrapper -> pages.busAddr);
     cbVirt[cb1].nextControlBlockAddr = (uint32_t)&(cbBus[cb2]);
@@ -63,10 +61,8 @@ adds a control block to the nth position of cbPage, where n == controlBlocksUsed
 make sure addresses passed in this function are PHYSICAL addresses!
 */
 void initDMAControlBlock (DMAControlPageWrapper * cbWrapper, uint32_t transferInfo, uint32_t physSrcAddr, uint32_t physDestAddr, uint32_t bytesToTransfer) {
-    if (cbWrapper -> controlBlocksTotal == cbWrapper -> controlBlocksUsed) {
-        ERROR_MSG("This page is already full!");
-        exit(1);
-    }
+    if (cbWrapper -> controlBlocksTotal == cbWrapper -> controlBlocksUsed)
+        FATAL_ERROR("This page is already full!");
     uint32_t idx = cbWrapper -> controlBlocksUsed;
     DMAControlBlock * cbVirt = (DMAControlBlock *)(cbWrapper -> pages.virtAddr);
     cbVirt[idx].transferInfo = transferInfo;
@@ -84,10 +80,8 @@ and
     cb[position].nextControlBlockAddr = &cb[position+1]
 */
 void insertDMAControlBlock(DMAControlPageWrapper * cbWrapper, uint32_t transferInfo, uint32_t physSrcAddr, uint32_t physDestAddr, uint32_t bytesToTransfer, uint32_t position) {
-    if (position > cbWrapper -> controlBlocksUsed) {
-        ERROR_MSG("Not enough control blocks have been initialized for this insert!");
-        exit(1);
-    }
+    if (position > cbWrapper -> controlBlocksUsed)
+        FATAL_ERROR("Not enough control blocks have been initialized for this insert!")
     initDMAControlBlock(cbWrapper, transferInfo, physSrcAddr, physDestAddr, bytesToTransfer);
     linkDMAControlBlocks(cbWrapper, position-1, position);
     linkDMAControlBlocks(cbWrapper, position, position+1);
@@ -113,9 +107,7 @@ void initDMAChannel(DMAControlBlock * physCB, uint8_t dmaCh) {
 
 /* start the dma channel */
 void startDMAChannel(uint8_t dmaCh) {
-    if (!((dmaMap[DMA_GLOBAL_ENABLE_REG] >> dmaCh) & 1)) {
-        ERROR_MSG("You need to initialize this channel first!");
-        exit(1);
-    }
+    if (!((dmaMap[DMA_GLOBAL_ENABLE_REG] >> dmaCh) & 1))
+        FATAL_ERROR("You need to initialize this channel first!")
     dmaMap[DMA_CS_REG(dmaCh)] = 1; // activate channel
 }

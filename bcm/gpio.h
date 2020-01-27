@@ -16,7 +16,7 @@
 
 void initGPIO();
 
-bool setPinMode(char pin, char mode);
+void setPinMode(char pin, char mode);
 
 void setPinHigh(char n);
 

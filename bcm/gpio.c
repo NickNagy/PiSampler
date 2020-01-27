@@ -10,17 +10,14 @@ void initGPIO() {
 }
 
 // not static because needed by clk.h ?
-bool setPinMode(char pin, char mode) {
+void setPinMode(char pin, char mode) {
     if (!gpioMap)
         initGPIO();
-    if (mode > 7) {
-        printf("ERROR: INVALID MODE.\n");
-        return 0;
-    }
+    if (mode > 7)
+        FATAL_ERROR("invalid pin mode for GPIO.");
     char fsel_reg = pin/10;
     char pinR = pin % 10;
     gpioMap[fsel_reg] = (gpioMap[fsel_reg] & FSEL_CLEAR_PIN_BITS(pinR)) | (mode << FSEL_SHIFT(pinR));
-    return 1;
 }
 
 void setPinHigh(char n) {

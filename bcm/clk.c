@@ -13,7 +13,7 @@ static int32_t setDiv(uint32_t targetFreq, uint32_t sourceFreq, bool mash) {
     return divi << 12;
 }
 
-int32_t getSourceFrequency(char src) {
+uint32_t getSourceFrequency(char src) {
     switch (src) {
         case OSC: return OSC_FREQ;
         case PLLC: return PLLC_FREQ;
@@ -70,48 +70,47 @@ void disableAllClocks() {
     clocksInitialized = 0;
 }
 
-bool initClock(char clockNum, uint32_t frequency, bool mash, char clockSource) {
+void initClock(char clockNum, uint32_t frequency, bool mash, char clockSource) {
     if (!clkMap)
         clkMap = initMemMap(CLK_CTRL_BASE_OFFSET, CLK_CTRL_BASE_MAPSIZE);
-    if (!isValidClockSelection(clockNum)) {
-        printf("Not a valid clock selection.\n");
-        return 1;
-    }
+
+    if (!isValidClockSelection(clockNum))
+        FATAL_ERROR("Not a valid clock selection.");
     DEBUG_VAL("clock source", clockSource);
+
     int32_t sourceFrequency = getSourceFrequency(clockSource);
     DEBUG_VAL("source frequency", sourceFrequency);
-    if (!sourceFrequency) {
-        printf("Not a valid source.\n");
-        return 1;
-    }
+    if (!sourceFrequency)
+        FATAL_ERROR("Not a valid source.");
+        
+    setPinMode(clockNum + 4, 4);
+
     if((clocksRunning >> clockNum) & 1) 
         disableClock(clockNum);
+
     clkMap[CLK_DIV_REG(clockNum)] = (CLK_PASSWD | setDiv(frequency, sourceFrequency, mash));
-    usleep(10);
+    usleep(100);
     clkMap[CLK_CTRL_REG(clockNum)] = (CLK_PASSWD | MASH(mash) | clockSource);
-    usleep(10);
+    usleep(100);
     printf("clock %d is set to run @ %d Hz.\n", clockNum, frequency);
+    
     DEBUG_REG("CTL", clkMap[CLK_CTRL_REG(clockNum)]);
     DEBUG_REG("DIV", clkMap[CLK_DIV_REG(clockNum)]);
     clocksInitialized |= 1 << clockNum;
-    if (VERBOSE) {
+    if (VERBOSE)
         printf("Clocks running = %d, clocks initialized = %d\n", clocksRunning, clocksInitialized);
-    }
-    return 0;
 }
 
-bool startClock(char clockNum) {
+void startClock(char clockNum) {
     if ((clocksRunning >> clockNum) & 1) {
-        printf("Clock %d is already running. You will have to disable it first.\n", clockNum);
-        return 1;
+        printf("ERROR: clock %d is already running. You will have to disable it first.\n", clockNum);
+        exit(1);
     }
     if (!((clocksInitialized >> clockNum) & 1)) {
         printf("ERROR: clock %d hasn't been initialized.\n", clockNum);
-        return 1;
+        exit(1);
     }
     clocksRunning |= (1 << clockNum);
     clkMap[CLK_CTRL_REG(clockNum)] |= (CLK_PASSWD | ENABLE);
-    setPinMode(clockNum + 4, 4);
     printf("Clock started.\n");
-    return 0;
 }

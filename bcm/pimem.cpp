@@ -9,26 +9,20 @@ static uint32_t vciofd = 0;
 initializes memfd and pagemapfd, which are used by multiple functions in this file
 returns 0 if successful, 1 otherwise
 */
-bool openFiles() {
+
+void openFiles() {
     if (!memfd) {
-        if((memfd = open("/dev/mem", O_RDWR | O_SYNC)) < 0) {
-            ERROR_MSG("Failure to access /dev/mem."); 
-            return 1;
-        }
+        if((memfd = open("/dev/mem", O_RDWR | O_SYNC)) < 0)
+            FATAL_ERROR("Failure to access /dev/mem.");
     }
     if (!pagemapfd) {
-        if((pagemapfd = open("/proc/self/pagemap", 'r')) < 0) {
-            ERROR_MSG("Failure to access /proc/self/pagemap.");
-            return 1;
-        }
+        if((pagemapfd = open("/proc/self/pagemap", 'r')) < 0)
+            FATAL_ERROR("Failure to access /proc/self/pagemap.");
     }
     if (!vciofd) {
-        if ((vciofd = open("/dev/vcio", 0)) < 0) {
-            ERROR_MSG("Failure to access /dev/vcio.");
-            return 1;
-        }
+        if ((vciofd = open("/dev/vcio", 0)) < 0)
+            FATAL_ERROR("Failure to access /dev/vcio.");
     }
-    return 0;
 }
 
 void closeFiles() {
@@ -55,12 +49,11 @@ uint32_t ceilToPage(uint32_t size) {
 /* returns a map to memory of given size and @ address offset */
 volatile uint32_t * initMemMap(uint32_t offset, uint32_t size) {
     if (offset % BCM_PAGESIZE) {
-        printf("ERROR: the address offset must be a multiple of the page size, which is %d bytes.\n", BCM_PAGESIZE);
-        return 0;
+        printf("the address offset must be a multiple of the page size, which is %d bytes.\n", BCM_PAGESIZE);
+        exit(1);
     }
-    if (!memfd) {
-        if (openFiles()) return 0;
-    }
+    if (!memfd)
+        openFiles();
     if (!bcm_base) 
         bcm_base = bcm_host_get_peripheral_address();
     return (volatile uint32_t *)mmap(0, size, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_SHARED|MAP_LOCKED, memfd, bcm_base + offset);
@@ -107,9 +100,8 @@ creates a page of virtual memory and updates *virtAddr to point to it. *physAddr
 of the virtual page
 */
 void initVirtPhysPage(void ** virtAddr, void ** physAddr) {
-    if (!pagemapfd) {
-        if (openFiles()) return;
-    }
+    if (!pagemapfd) 
+        openFiles();
 
     uint64_t pageInfo;
     
@@ -119,10 +111,8 @@ void initVirtPhysPage(void ** virtAddr, void ** physAddr) {
     memset(*virtAddr, 0, BCM_PAGESIZE);
 
     // (*virtAddr/BCM_PAGESIZE * PAGEMAP_LENGTH) == offset of pageInfo, so seek to that location in pagemapfd
-    if ((lseek(pagemapfd, ((size_t)*virtAddr)/BCM_PAGESIZE * PAGEMAP_LENGTH, SEEK_SET)) < 0) {
-        printf("Failure to seek page map to proper location.\n");
-        return;
-    }
+    if ((lseek(pagemapfd, ((size_t)*virtAddr)/BCM_PAGESIZE * PAGEMAP_LENGTH, SEEK_SET)) < 0)
+        FATAL_ERROR("Failure to seek page map to proper location.");
 
     // we are concerned about bits 0 - 54 --> bit 55 is a flag
     read(pagemapfd, &pageInfo, PAGEMAP_LENGTH); //- 1);
@@ -142,9 +132,8 @@ void clearVirtPhysPage(void * virtAddr) {
 returns a pointer to the corresponding physical address of *virtAddr
 */
 uintptr_t virtToPhys(void * virtAddr) {
-    if (!pagemapfd) {
-        if (openFiles()) return 0;
-    }
+    if (!pagemapfd)
+        openFiles();
     
     // start w/ same procedure as initVirtPhysPage(). Seek to the region of pagemapfd that will give us the pageInfo
     

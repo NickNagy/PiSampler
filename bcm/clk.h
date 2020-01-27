@@ -42,13 +42,13 @@ bool clockIsBusy(int32_t clock_ctrl_reg);
 
 bool isValidClockSelection(char clockNum);
 
-int32_t getSourceFrequency(char src);
+uint32_t getSourceFrequency(char src);
 
 void disableClock(char clockNum);
 
-bool startClock(char clockNum);
+void startClock(char clockNum);
 
-bool initClock(char clockNum, uint32_t frequency, bool mash, char clockSource);
+void initClock(char clockNum, uint32_t frequency, bool mash, char clockSource);
 
 void disableAllClocks();
 

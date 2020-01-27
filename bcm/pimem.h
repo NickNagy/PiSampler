@@ -56,7 +56,7 @@ struct MailboxMessage
   uint32_t messageEndSentinel;
 };
 
-bool openFiles();
+void openFiles();
 
 void closeFiles();
 
