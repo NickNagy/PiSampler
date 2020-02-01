@@ -186,7 +186,7 @@ void initPCM(pcmExternInterface * ext, uint8_t thresh, uint8_t panicThresh, bool
     
     checkInitParams(ext, thresh, panicThresh);
     
-    if (packedMode & ext->numChannels != 2)
+    if (packedMode && ext->numChannels != 2)
         packedMode = 0;
     printf("Initializing PCM interface...");
 
