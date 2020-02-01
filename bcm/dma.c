@@ -92,7 +92,8 @@ void initDMAChannel(DMAControlBlock * physCB, uint8_t dmaCh) {
     }
     //enable channel
     dmaMap[DMA_GLOBAL_ENABLE_REG] |= (1 << dmaCh);
-    dmaMap[DMA_CS_REG(dmaCh)] = (0xFF << 16) | DMA_RESET; // set to max AXI priority levels
+    dmaMap[DMA_CS_REG(dmaCh)] |= DMA_ABORT;
+    dmaMap[DMA_CS_REG(dmaCh)] = DMA_DISDEBUG | (0xFF << 16) | DMA_RESET; // set to max AXI priority levels
 	sleep(1);
 	
 	// clear debug flags
