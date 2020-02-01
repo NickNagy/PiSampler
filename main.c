@@ -23,9 +23,10 @@ int main(int agrc, char ** argv) {
 	startPCM();
 
 	// free mem
-	freePCM();
+	/*freePCM();
 	freeDMA();
 	freeClocks();
-	freeGPIO();	
+	freeGPIO();*/
+	closePCM();
 	closeFiles();
 }
