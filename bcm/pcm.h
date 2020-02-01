@@ -4,6 +4,7 @@
 #include "pimem.h"
 #include "gpio.h"
 #include "dma.h"
+#include "clk.h"
 #include "../globals.h"
 
 #define PCM_BASE_OFFSET 0x203000
@@ -22,6 +23,8 @@
 #define TXCLR 8
 #define RXCLR 16
 #define STBY  (1<<25)
+
+#define PCM_CLK_CTL_IDX 5
 
 // bitwise-AND with registers --> avoids changing RO bits
 #define CLEAR_CTRL_BITS 0x7E6000
@@ -43,26 +46,30 @@
 #define TXDMA 5
 
 typedef struct pcmExternInterface {
+    uint16_t sampleFreq;
     uint8_t ch1Pos;
     uint8_t dataWidth;
     uint8_t frameLength;
     uint8_t numChannels;
     bool inputOnFallingEdge;
     bool isMasterDevice;
+    bool isDoubleSpeedMode;
 } pcmExternInterface;
 
 static bool checkFrameAndChannelWidth(pcmExternInterface * ext);
 
-static void checkInitParams(pcmExternInterface * ext, uint8_t thresh);
+static void checkInitParams(pcmExternInterface * ext, uint8_t thresh, uint8_t panicThresh);
 
 static int32_t getSyncDelay();
 
 static void initRXTXControlRegisters(pcmExternInterface * ext, bool packedMode);
 
-static void initDMAMode(uint8_t dataWidth, uint8_t thresh, bool packedMode);
+static void initDMAMode(uint8_t dataWidth, uint8_t thresh, uint8_t panicThresh, bool packedMode);
 
-void initPCM(pcmExternInterface * ext, uint8_t thresh, bool packedMode);
+void initPCM(pcmExternInterface * ext, uint8_t thresh, uint8_t panicThresh, bool packedMode);
 
 void startPCM();
+
+void freePCM();
 
 #endif
