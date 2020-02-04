@@ -48,7 +48,7 @@ void clearDMAControlPage(DMAControlPageWrapper * cbWrapper) {
 set the nextControlBlockAddr of cb1 to point to cb2
 */
 void linkDMAControlBlocks (DMAControlPageWrapper * cbWrapper, uint32_t cb1, uint32_t cb2) {
-    if (cb1 > cbWrapper->controlBlocksTotal || cb2 > cbWrapper-> controlBlocksTotal)
+    if (cb1 > cbWrapper->controlBlocksUsed || cb2 > cbWrapper-> controlBlocksUsed)
         FATAL_ERROR("Control block does not exist in this page!")
     DMAControlBlock * cbVirt = (DMAControlBlock *)(cbWrapper -> pages.virtAddr);
     DMAControlBlock * cbBus = (DMAControlBlock *)(cbWrapper -> pages.busAddr);
@@ -73,6 +73,8 @@ void initDMAControlBlock (DMAControlPageWrapper * cbWrapper, uint32_t transferIn
 }
 
 /*
+NOTE: this function doesn't make sense for my current setup -> need to choose a consistent implementation for CB wrappers!
+
 inserts a new DMAControlBlock into the cbPage with the given transferInfo, srcAddr, destAddr, bytesToTransfer
 inserted at position such that 
     cb[position - 1].nextControlBlockAddr = &cb[position], 
@@ -110,4 +112,8 @@ void startDMAChannel(uint8_t dmaCh) {
     if (!((dmaMap[DMA_GLOBAL_ENABLE_REG] >> dmaCh) & 1))
         FATAL_ERROR("You need to initialize this channel first!")
     dmaMap[DMA_CS_REG(dmaCh)] = 1; // activate channel
+}
+
+uint32_t debugDMA(uint8_t dmaCh) {
+    return dmaMap[DMA_DEBUG_REG(dmaCh)];
 }

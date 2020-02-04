@@ -20,18 +20,14 @@ int main(int agrc, char ** argv) {
 	pmod.isMasterDevice = 1;
 	
 	openFiles();
-	
 	initClock(MCLK, MCLK_FREQ, 1, PLLD);
 	
-	initPCM(&pmod, 0, 1);
-	
+	//initPCM(&pmod, 0, 1);
 	sleep(1);
 	
 	startClock(MCLK);
+	//startPCM();
 	
-	startPCM();
-	
-	sleep(10);
-	
+	freeClockMem();
 	closeFiles();
 }

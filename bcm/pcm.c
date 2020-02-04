@@ -4,6 +4,8 @@ static volatile uint32_t * pcmMap = 0;
 static bool pcmInitialized;
 static bool pcmRunning;
 
+static uint32_t * buffer;
+
 static int32_t syncWait;
 
 //static DMAControlBlock * rxCtrlBlk;
@@ -96,6 +98,9 @@ static void initDMAMode(uint8_t dataWidth, uint8_t thresh, bool packedMode) {
     void * virtBufferPages = bufferPages.virtAddr;
     void * busBufferPages = (void *)bufferPages.busAddr;
     
+    DEBUG_PTR("virtual buffer page", virtBufferPages);
+    DEBUG_PTR("bus buffer page", busBufferPages);
+    
     // peripheral addresses must be physical
     //uint32_t bcm_base = getBCMBase();
     uint32_t fifoPhysAddr = BUS_BASE + PCM_BASE_OFFSET + (PCM_FIFO_REG<<2); // PCM_FIFO_REG is macro defined by int offset, need byte offset
@@ -139,22 +144,24 @@ static void initDMAMode(uint8_t dataWidth, uint8_t thresh, bool packedMode) {
     insertDMAControlBlock (&cbWrapper, rxTransferInfo, fifoPhysAddr, (uint32_t)busBufferPages, transferLength, 2);
     insertDMAControlBlock (&cbWrapper, 0, (uint32_t)&(((char *)busBufferPages)[lastByteIdx]), csPhysAddr, 1, 3);*/
     
-    initDMAControlBlock(&cbWrapper, txTransferInfo, (uint32_t)busBufferPages, fifoPhysAddr, transferLength);
+    //initDMAControlBlock(&cbWrapper, txTransferInfo, (uint32_t)busBufferPages, fifoPhysAddr, transferLength);
     initDMAControlBlock(&cbWrapper, 0, (uint32_t)&(((char *)busBufferPages)[lastByteIdx-1]), csPhysAddr, 1);
-    initDMAControlBlock(&cbWrapper, rxTransferInfo, fifoPhysAddr, (uint32_t)busBufferPages, transferLength);
+    //initDMAControlBlock(&cbWrapper, rxTransferInfo, fifoPhysAddr, (uint32_t)busBufferPages, transferLength);
     initDMAControlBlock(&cbWrapper, 0, (uint32_t)&(((char *)busBufferPages)[lastByteIdx]), csPhysAddr, 1);
     
     VERBOSE_MSG("Control blocks set.\n");
     
     // create loop
     linkDMAControlBlocks(&cbWrapper, 0, 1);
-    linkDMAControlBlocks(&cbWrapper, 1, 2);
-    linkDMAControlBlocks(&cbWrapper, 2, 3);    
-    linkDMAControlBlocks(&cbWrapper, 3, 0);
+    linkDMAControlBlocks(&cbWrapper, 1, 0);//2);
+    //linkDMAControlBlocks(&cbWrapper, 2, 3);    
+    //linkDMAControlBlocks(&cbWrapper, 3, 0);
     VERBOSE_MSG("Control block loop(s) set.\n");
 
-    initDMAChannel((DMAControlBlock *)(cbWrapper.pages.busAddr), 5);
+    initDMAChannel((DMAControlBlock *)(cbWrapper.pages.busAddr), PCM_DMA_CHANNEL);
     VERBOSE_MSG("Control blocks loaded into DMA registers.\nDMA mode successfully initialized.\n");
+    
+    buffer = (uint32_t*)virtBufferPages;
 }
 
 
@@ -233,9 +240,15 @@ void startPCM() {
     pcmRunning = 1;
     VERBOSE_MSG("Starting PCM...\n");
 
-    startDMAChannel((uint8_t)RXDMA);
+    startDMAChannel((uint8_t)PCM_DMA_CHANNEL);
     pcmMap[PCM_CTRL_REG] |= TXON;
     
     DEBUG_REG("PCM ctrl reg w/ tx and rx on", pcmMap[PCM_CTRL_REG]);
     VERBOSE_MSG("Running...\n");
+    
+    if (DEBUG) {
+        for (int i = 0; i < 50; i++) {
+            printf("Buffer (%p) = %x; PCM CTRL reg = %x; DMA debug reg = %x\n", buffer, *buffer, pcmMap[PCM_CTRL_REG], debugDMA((uint8_t)PCM_DMA_CHANNEL));
+        }
+    }
 }

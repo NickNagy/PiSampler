@@ -149,4 +149,6 @@ void initDMAChannel(DMAControlBlock * physCB, uint8_t dmaCh);
 
 void startDMAChannel(uint8_t dmaCh);
 
+uint32_t debugDMA(uint8_t dmaCh);
+
 #endif

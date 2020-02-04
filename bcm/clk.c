@@ -83,7 +83,8 @@ void initClock(char clockNum, uint32_t frequency, bool mash, char clockSource) {
     if (!sourceFrequency)
         FATAL_ERROR("Not a valid source.");
         
-    setPinMode(clockNum + 4, 4);
+    if (clockNum < 3) // not PCM or PWM clk
+        setPinMode(clockNum + 4, 4);
 
     if((clocksRunning >> clockNum) & 1) 
         disableClock(clockNum);
@@ -113,4 +114,8 @@ void startClock(char clockNum) {
     clocksRunning |= (1 << clockNum);
     clkMap[CLK_CTRL_REG(clockNum)] |= (CLK_PASSWD | ENABLE);
     printf("Clock started.\n");
+}
+
+void freeClockMem() {
+    munmap((void*)clkMap, CLK_CTRL_BASE_MAPSIZE);
 }

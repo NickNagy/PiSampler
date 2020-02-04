@@ -39,8 +39,7 @@
 #define TXEMPTY pcmMap[PCM_CTRL_REG] & 0x20000
 
 // DMA channels for FIFO
-#define RXDMA 4
-#define TXDMA 5
+#define PCM_DMA_CHANNEL 5
 
 typedef struct pcmExternInterface {
     uint8_t ch1Pos;

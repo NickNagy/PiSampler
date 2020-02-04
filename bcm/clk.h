@@ -8,7 +8,7 @@
 // function select register for GPCLK0, GPCLK1, GPCLK2
 // clock control registers start at +0x101070, but this is not a multiple of our system page size, so we have to start from +0x101000
 #define CLK_CTRL_BASE_OFFSET 0x101000
-#define CLK_CTRL_BASE_MAPSIZE 0x88 // 0xA8 // need to hold up to 0x101088
+#define CLK_CTRL_BASE_MAPSIZE 0xA8 
 
 // function select
 #define CLK_ALT_SHIFT(x) 12 + FSEL_SHIFT(x)
@@ -17,6 +17,9 @@
 // ctrl and div
 #define CLK_CTRL_REG(x) 28 + (x<<1)
 #define CLK_DIV_REG(x) 29 + (x<<1)
+
+// PCM clk index
+#define PCM_CLK_IDX 5
 
 #define CLK_PASSWD (0x5A << 24)
 #define MASH(x) (x << 9)
@@ -51,5 +54,7 @@ void startClock(char clockNum);
 void initClock(char clockNum, uint32_t frequency, bool mash, char clockSource);
 
 void disableAllClocks();
+
+void freeClockMem();
 
 #endif
