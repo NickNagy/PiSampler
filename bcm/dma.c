@@ -1,10 +1,6 @@
 #include "dma.h"
 #include "pimem.h"
 
-static void * virtPage;
-static void * physPage;
-static uint32_t totalDefinedControlBlocks;
-
 static volatile uint32_t * dmaMap = 0;
 
 /* 
@@ -98,7 +94,8 @@ void initDMAChannel(DMAControlBlock * physCB, uint8_t dmaCh) {
     }
     //enable channel
     dmaMap[DMA_GLOBAL_ENABLE_REG] |= (1 << dmaCh);
-    dmaMap[DMA_CS_REG(dmaCh)] = DMA_RESET;
+    dmaMap[DMA_CS_REG(dmaCh)] |= DMA_ABORT;
+    dmaMap[DMA_CS_REG(dmaCh)] = DMA_DISDEBUG | (0xFF << 16) | DMA_RESET; // set to max AXI priority levels
 	sleep(1);
 	
 	// clear debug flags
@@ -116,4 +113,9 @@ void startDMAChannel(uint8_t dmaCh) {
 
 uint32_t debugDMA(uint8_t dmaCh) {
     return dmaMap[DMA_DEBUG_REG(dmaCh)];
+}
+
+/* make sure to also clear DMA control pages separately */
+void freeDMA() {
+    clearMemMap((void*)dmaMap, DMA_MAPSIZE);
 }

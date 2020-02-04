@@ -26,8 +26,9 @@
 #define DMA_GLOBAL_ENABLE_REG   0xFF0>>2
 
 // Control status register bits
-#define DMA_RESET 1<<31
-#define DMA_ABORT 1<<30
+#define DMA_RESET    1<<31
+#define DMA_ABORT    1<<30
+#define DMA_DISDEBUG 1<<29
 
 // Debug register bits
 #define DMA_READ_ERROR 4
@@ -150,5 +151,7 @@ void initDMAChannel(DMAControlBlock * physCB, uint8_t dmaCh);
 void startDMAChannel(uint8_t dmaCh);
 
 uint32_t debugDMA(uint8_t dmaCh);
+
+void freeDMA();
 
 #endif

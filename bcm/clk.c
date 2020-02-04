@@ -74,7 +74,7 @@ void initClock(char clockNum, uint32_t frequency, bool mash, char clockSource) {
     if (!clkMap)
         clkMap = initMemMap(CLK_CTRL_BASE_OFFSET, CLK_CTRL_BASE_MAPSIZE);
 
-    if (!isValidClockSelection(clockNum))
+    if (clockNum < 3 && !isValidClockSelection(clockNum))
         FATAL_ERROR("Not a valid clock selection.");
     DEBUG_VAL("clock source", clockSource);
 
@@ -116,6 +116,6 @@ void startClock(char clockNum) {
     printf("Clock started.\n");
 }
 
-void freeClockMem() {
+void freeClocks() {
     munmap((void*)clkMap, CLK_CTRL_BASE_MAPSIZE);
 }

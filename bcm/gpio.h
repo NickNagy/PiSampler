@@ -24,4 +24,6 @@ void setPinLow(char n);
 
 void LEDTest(char pin, uint8_t numBlinks, uint32_t delay_seconds);
 
+void freeGPIO();
+
 #endif

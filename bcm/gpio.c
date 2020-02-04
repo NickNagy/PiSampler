@@ -46,3 +46,7 @@ void LEDTest(char pin, uint8_t numBlinks, uint32_t delay_seconds) {
         usleep(delay_us);
     }
 }
+
+void freeGPIO() {
+    clearMemMap((void*)gpioMap, GPIO_BASE_MAPSIZE);
+}

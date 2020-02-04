@@ -8,6 +8,8 @@ static uint32_t * buffer;
 
 static int32_t syncWait;
 
+static VirtToBusPages bufferPages;
+
 //static DMAControlBlock * rxCtrlBlk;
 //static DMAControlBlock * txCtrlBlk;
 //static unsigned * rxtxRAMptr;
@@ -17,8 +19,8 @@ static bool checkFrameAndChannelWidth(pcmExternInterface * ext) {
     return 0;
 }
 
-static void checkInitParams(pcmExternInterface * ext, uint8_t thresh) {
-    if (!ext->isMasterDevice && !checkFrameAndChannelWidth(ext))
+static void checkInitParams(pcmExternInterface * ext, uint8_t thresh, uint8_t panicThresh) {
+    if (!ext->isMasterDevice && checkFrameAndChannelWidth(ext))
         FATAL_ERROR("incompatible frame lengths and data widths.")
     if (ext->numChannels < 1 || ext->numChannels > 2) 
         FATAL_ERROR("valid number of channels are 1 or 2.");
@@ -27,8 +29,8 @@ static void checkInitParams(pcmExternInterface * ext, uint8_t thresh) {
     } else if (ext->dataWidth % 8) {
         FATAL_ERROR("please set data width to be a multiple of 8 bits.");
     }
-    if (thresh >= 128)
-        FATAL_ERROR("threshold must be six-bit value for DMA mode.")
+    if (thresh >= 128 || panicThresh >= 128)
+        FATAL_ERROR("thresholds must be six-bit values for DMA mode.")
 }
 
 /*
@@ -85,16 +87,17 @@ static void initRXTXControlRegisters(pcmExternInterface * ext, bool packedMode) 
 }
 
 
-static void initDMAMode(uint8_t dataWidth, uint8_t thresh, bool packedMode) {
+static void initDMAMode(uint8_t dataWidth, uint8_t thresh, uint8_t panicThresh, bool packedMode) {
     // set DMAEN to enable DREQ generation and set RX/TXREQ, RX/TXPANIC
     pcmMap[PCM_CTRL_REG] |= (1 << 9); // DMAEN
     
     usleep(1000);
-    
-    pcmMap[PCM_DREQ_REG] = ((thresh + 1) << 24) | ((thresh + 1)<<16) | (thresh << 8) | thresh;
+
+    // TODO: separate panic thresholds from dreq thresholds
+    pcmMap[PCM_DREQ_REG] = (panicThresh << 24) | (panicThresh<<16) | (thresh << 8) | thresh;
 
     // read from FIFO to here, and write from here to FIFO
-    VirtToBusPages bufferPages = initUncachedMemView(BCM_PAGESIZE, USE_DIRECT_UNCACHED);
+    bufferPages = initUncachedMemView(BCM_PAGESIZE, USE_DIRECT_UNCACHED);
     void * virtBufferPages = bufferPages.virtAddr;
     void * busBufferPages = (void *)bufferPages.busAddr;
     
@@ -144,9 +147,9 @@ static void initDMAMode(uint8_t dataWidth, uint8_t thresh, bool packedMode) {
     insertDMAControlBlock (&cbWrapper, rxTransferInfo, fifoPhysAddr, (uint32_t)busBufferPages, transferLength, 2);
     insertDMAControlBlock (&cbWrapper, 0, (uint32_t)&(((char *)busBufferPages)[lastByteIdx]), csPhysAddr, 1, 3);*/
     
-    //initDMAControlBlock(&cbWrapper, txTransferInfo, (uint32_t)busBufferPages, fifoPhysAddr, transferLength);
+    initDMAControlBlock(&cbWrapper, txTransferInfo, (uint32_t)busBufferPages, fifoPhysAddr, transferLength);
     initDMAControlBlock(&cbWrapper, 0, (uint32_t)&(((char *)busBufferPages)[lastByteIdx-1]), csPhysAddr, 1);
-    //initDMAControlBlock(&cbWrapper, rxTransferInfo, fifoPhysAddr, (uint32_t)busBufferPages, transferLength);
+    initDMAControlBlock(&cbWrapper, rxTransferInfo, fifoPhysAddr, (uint32_t)busBufferPages, transferLength);
     initDMAControlBlock(&cbWrapper, 0, (uint32_t)&(((char *)busBufferPages)[lastByteIdx]), csPhysAddr, 1);
     
     VERBOSE_MSG("Control blocks set.\n");
@@ -154,8 +157,8 @@ static void initDMAMode(uint8_t dataWidth, uint8_t thresh, bool packedMode) {
     // create loop
     linkDMAControlBlocks(&cbWrapper, 0, 1);
     linkDMAControlBlocks(&cbWrapper, 1, 0);//2);
-    //linkDMAControlBlocks(&cbWrapper, 2, 3);    
-    //linkDMAControlBlocks(&cbWrapper, 3, 0);
+    linkDMAControlBlocks(&cbWrapper, 2, 3);    
+    linkDMAControlBlocks(&cbWrapper, 3, 0);
     VERBOSE_MSG("Control block loop(s) set.\n");
 
     initDMAChannel((DMAControlBlock *)(cbWrapper.pages.busAddr), PCM_DMA_CHANNEL);
@@ -178,7 +181,7 @@ thresh: threshold for TX and RX registers. Interpretation depends on mode
 packedMode: (for 2 channel data)
     1: use packed mode, where each word to FIFO reg is two 16b signals together, 1 representing each channel
 */
-void initPCM(pcmExternInterface * ext, uint8_t thresh, bool packedMode) {
+void initPCM(pcmExternInterface * ext, uint8_t thresh, uint8_t panicThresh, bool packedMode) {
     if (!pcmMap) {
         if(!(pcmMap = initMemMap(PCM_BASE_OFFSET, PCM_BASE_MAPSIZE)))
             return;
@@ -188,9 +191,9 @@ void initPCM(pcmExternInterface * ext, uint8_t thresh, bool packedMode) {
         return;
     }
     
-    checkInitParams(ext, thresh);
+    checkInitParams(ext, thresh, panicThresh);
     
-    if (packedMode & ext->numChannels != 2)
+    if (packedMode && ext->numChannels != 2)
         packedMode = 0;
     printf("Initializing PCM interface...");
 
@@ -202,7 +205,8 @@ void initPCM(pcmExternInterface * ext, uint8_t thresh, bool packedMode) {
 
     // set all operational values to define frame and channel settings
     // CLKM == FSM
-    pcmMap[PCM_MODE_REG] = (3*packedMode << 24) | ((ext->isMasterDevice << 23) | (!ext->inputOnFallingEdge << 22) | (ext->isMasterDevice << 21) | (ext->frameLength << 10) | ext->frameLength);
+    uint8_t flen = ext->frameLength >> 1;
+    pcmMap[PCM_MODE_REG] = (3*packedMode << 24) | (ext->isMasterDevice << 23) | (!ext->inputOnFallingEdge << 22) | (ext->isMasterDevice << 21) | (flen << 10) | flen;
     
     usleep(1000);
     
@@ -219,7 +223,7 @@ void initPCM(pcmExternInterface * ext, uint8_t thresh, bool packedMode) {
     pcmMap[PCM_CTRL_REG] |= STBY;
     usleep(2000);//syncWait*2); // allow for at least 4 pcm clock cycles after clearing
 
-    initDMAMode(ext->dataWidth, thresh, packedMode);
+    initDMAMode(ext->dataWidth, thresh, panicThresh, packedMode);
 
     DEBUG_REG("Mode reg at end of init", pcmMap[PCM_MODE_REG]);
     DEBUG_REG("Control reg at end of init", pcmMap[PCM_CTRL_REG]);
@@ -229,6 +233,15 @@ void initPCM(pcmExternInterface * ext, uint8_t thresh, bool packedMode) {
         if (DEBUG) printf("pin %d set to ALT0\n", i);
     }
     
+    uint32_t mClkFreq, pcmClkFreq;
+    pcmClkFreq = (uint32_t)ext->sampleFreq * ext->frameLength;
+    mClkFreq = ext->isDoubleSpeedMode ? (pcmClkFreq << 2): (pcmClkFreq << 1);
+
+    // initialize clock(s)
+    initClock(0, mClkFreq, 1, PLLD);
+    if (!ext->isMasterDevice)
+        initClock(PCM_CLK_CTL_IDX, pcmClkFreq, 1, OSC); // can both sources use PLLD?
+
     pcmInitialized = 1;
     printf("done.\n");
 
@@ -241,6 +254,11 @@ void startPCM() {
     VERBOSE_MSG("Starting PCM...\n");
 
     startDMAChannel((uint8_t)PCM_DMA_CHANNEL);
+
+    startClock(0);
+    if (~(pcmMap[PCM_MODE_REG] >> 23) & 1) // if PCM is master mode, need to start PCM CLK
+        startClock(PCM_CLK_CTL_IDX);
+
     pcmMap[PCM_CTRL_REG] |= TXON;
     
     DEBUG_REG("PCM ctrl reg w/ tx and rx on", pcmMap[PCM_CTRL_REG]);
@@ -251,4 +269,12 @@ void startPCM() {
             printf("Buffer (%p) = %x; PCM CTRL reg = %x; DMA debug reg = %x\n", buffer, *buffer, pcmMap[PCM_CTRL_REG], debugDMA((uint8_t)PCM_DMA_CHANNEL));
         }
     }
+}
+
+void freePCM() {
+    clearMemMap((void*)pcmMap, PCM_BASE_MAPSIZE);
+    clearUncachedMemView(&bufferPages);
+    freeDMA();
+    freeClocks();
+    freeGPIO();
 }
