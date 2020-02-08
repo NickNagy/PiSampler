@@ -4,102 +4,26 @@
 
 #define DMA_TEST_CHANNEL 5
 
+#define PCM_BASE_OFFSET 0x203000
+#define PCM_BASE_MAPSIZE 0x24
+
+#define TXCLR 8
+#define RXCLR 16
+
 volatile uint32_t * dmaMap = 0;
 
-void dma_test_0_mailbox() {
-    printf("Mailbox approach:\n");
-    
-    void * virtSrcPage, *busSrcPage;
-    VirtToBusPages srcPages = initUncachedMemView(BCM_PAGESIZE, USE_DIRECT_UNCACHED);
-    virtSrcPage = srcPages.virtAddr;
-    busSrcPage = (void *)(srcPages.busAddr);
-    
-    DEBUG_PTR("virtSrc", virtSrcPage);
-    DEBUG_PTR("physSrc", busSrcPage);
-
-    void * virtDestPage, *busDestPage;
-    VirtToBusPages destPages = initUncachedMemView(BCM_PAGESIZE, USE_DIRECT_UNCACHED);
-    virtDestPage = destPages.virtAddr;
-    busDestPage = (void *)(destPages.busAddr);
-
-    DEBUG_PTR("virtDest", virtDestPage);
-    DEBUG_PTR("physDest", busDestPage);
-    
-    sleep(1);
-
-    char *srcArr = (char *)virtSrcPage;
-    srcArr[0] = 'h';
-    srcArr[1] = 'e';
-    srcArr[2] = 'l';
-    srcArr[3] = 'l';
-    srcArr[4] = 'o';
-    srcArr[5] = ' ';
-    srcArr[6] = 'w';
-    srcArr[7] = 'o';
-    srcArr[8] = 'r';
-    srcArr[9] = 'l';
-    srcArr[10] = 'd';
-    srcArr[11] = '!';
-    srcArr[12] = 0;
-	
-    void * virtCBPage, *busCBPage;
-    VirtToBusPages cbPages = initUncachedMemView(BCM_PAGESIZE, USE_DIRECT_UNCACHED);
-    virtCBPage = cbPages.virtAddr;
-    busCBPage = (void*)(cbPages.busAddr);
-
-    DEBUG_PTR("virtCB", virtCBPage);
-    DEBUG_PTR("physCB", busCBPage);
-
-    DMAControlBlock * cb = (DMAControlBlock *)virtCBPage;
-
-    cb -> transferInfo = SRC_INC | DEST_INC;
-    cb -> srcAddr = (uint32_t)busSrcPage;
-    cb -> destAddr = (uint32_t)busDestPage;
-    cb -> transferLength = 13;
-    cb -> stride = 0;
-    cb -> reserved = 0;
-    cb -> nextControlBlockAddr = 0;
-
-    //enable DMA channel
-	dmaMap[DMA_GLOBAL_ENABLE_REG] |= (1 << DMA_TEST_CHANNEL);
-
-	dmaMap[DMA_CS_REG(DMA_TEST_CHANNEL)] = DMA_RESET;
-	sleep(1);
-
-	// clear debug flags
-	dmaMap[DMA_DEBUG_REG(DMA_TEST_CHANNEL)] = 7; 
-	dmaMap[DMA_CONBLK_AD_REG(DMA_TEST_CHANNEL)] = (uint32_t)busCBPage; // temporarily...
-
-    dmaMap[DMA_CS_REG(DMA_TEST_CHANNEL)] = 1;
-
-    sleep(1);
-
-    printf("destination reads: '%s'\n", (char*)virtDestPage);
-    
-    clearUncachedMemView(&srcPages);
-    clearUncachedMemView(&destPages);
-    clearUncachedMemView(&cbPages);
-}
-
-
 void dma_test_0() {
-    printf("DMA TEST 0:\n\t use a single DMA control block to write 'hello world!' to the destination.\n");
+    printf("\nDMA TEST 0:\n\t use a single DMA control block to write 'hello world!' to the destination.\n");
 
     void * virtSrcPage, *busSrcPage;
     VirtToBusPages srcPages = initUncachedMemView(BCM_PAGESIZE, USE_DIRECT_UNCACHED);
     virtSrcPage = srcPages.virtAddr;
     busSrcPage = (void *)(srcPages.busAddr);
-    
-    DEBUG_PTR("virtSrc", virtSrcPage);
-    DEBUG_PTR("physSrc", busSrcPage);
 
     void * virtDestPage, *busDestPage;
     VirtToBusPages destPages = initUncachedMemView(BCM_PAGESIZE, USE_DIRECT_UNCACHED);
     virtDestPage = destPages.virtAddr;
     busDestPage = (void *)(destPages.busAddr);
-
-    DEBUG_PTR("virtDest", virtDestPage);
-    DEBUG_PTR("physDest", busDestPage);
     
     printf("(Before transfer) destination reads: %s\n", (char*)virtDestPage);
     
@@ -123,7 +47,7 @@ void dma_test_0() {
     DMAControlPageWrapper cbWrapper = initDMAControlPage(1);
     initDMAControlBlock(&cbWrapper, SRC_INC | DEST_INC, (uint32_t)busSrcPage, (uint32_t)busDestPage, 13);
     
-    DEBUG_PTR("start control block src addr", (uint32_t)(((DMAControlBlock *)(cbWrapper.pages.virtAddr))->srcAddr));
+    //DEBUG_PTR("start control block src addr", (uint32_t)(((DMAControlBlock *)(cbWrapper.pages.virtAddr))->srcAddr));
 	
     initDMAChannel((DMAControlBlock *)(cbWrapper.pages.busAddr), DMA_TEST_CHANNEL);
 
@@ -146,7 +70,7 @@ goal: set cb1 instead to transfer "hello world!" to its destination
 
 */
 void dma_test_1() {
-    printf("DMA TEST 1:\n\tUse 2 DMA control blocks to change the string 'uh-oh world!' to 'hello world!' and write it to the destination.\n");
+    printf("\nDMA TEST 1:\n\tUse 2 DMA control blocks to change the string 'uh-oh world!' to 'hello world!' and write it to the destination.\n");
 
     size_t srcBytes = ceilToPage(18);
     size_t destBytes = ceilToPage(13);
@@ -217,7 +141,7 @@ NOTE: I'm not sure this function can guarantee anything? Will the DMA cbs contin
 
 */
 void dma_test_2() {
-    printf("DMA TEST 2:\n\tStop two DMA control blocks who point to each other from looping infinitely by writing 0 to one of their nextControlBlockAddr fields.\n");
+    printf("\nDMA TEST 2:\n\tStop two DMA control blocks who point to each other from looping infinitely by writing 0 to one of their nextControlBlockAddr fields.\n");
 
     void *virtSrcPage, *busSrcPage, *virtDestPage, *busDestPage;
     VirtToBusPages srcPages = initUncachedMemView(13, USE_DIRECT_UNCACHED);
@@ -230,11 +154,11 @@ void dma_test_2() {
     printf("(Before transfer) destination reads: %s\n", (char*)virtDestPage);
 
     char *srcArr = (char *)virtSrcPage;
-    srcArr[0] = 'u';
-    srcArr[1] = 'h';
-    srcArr[2] = '-';
-    srcArr[3] = 'o';
-    srcArr[4] = 'h';
+    srcArr[0] = 'h';
+    srcArr[1] = 'e';
+    srcArr[2] = 'l';
+    srcArr[3] = 'l';
+    srcArr[4] = 'o';
     srcArr[5] = ' ';
     srcArr[6] = 'w';
     srcArr[7] = 'o';
@@ -272,7 +196,7 @@ void dma_test_2() {
 }
 
 void dma_test_3() {
-    printf("DMA Test 3:\n\tChange the bottom byte of a 'reg' without manipulating its other bits.\n");
+    printf("\nDMA Test 3:\n\tChange the bottom byte of a 'reg' without manipulating its other bits.\n");
     void* virtPage, *busPage;
     VirtToBusPages pages = initUncachedMemView(BCM_PAGESIZE, USE_DIRECT_UNCACHED);
     virtPage = pages.virtAddr;
@@ -296,6 +220,46 @@ void dma_test_3() {
     clearDMAControlPage(&cbWrapper);
 }
 
+void dma_test_4() {
+    printf("\nDMA Test 4:\n\tUpdate the bottom byte of the PCM CS_A reg.\n");
+    
+    void* virtPage, *busPage;
+    VirtToBusPages pages = initUncachedMemView(BCM_PAGESIZE, USE_DIRECT_UNCACHED);
+    virtPage = pages.virtAddr;
+    busPage = (void*)pages.busAddr;
+    uint8_t *virtBytes = (uint8_t*)virtPage;
+    virtBytes[0] = 0;
+    
+    volatile uint32_t * pcmMap = initMemMap(PCM_BASE_OFFSET, PCM_BASE_MAPSIZE);
+    
+    pcmMap[0] = 1; // enables PCM
+    
+    /* bit assignments here shouldn't bear any real significance in operation --> these
+     * are just the bit assignments I have set for my audio project */
+    pcmMap[0] |= (1 << 25); // RAM released from standby mode
+    pcmMap[0] |= (1 << 9); // DMA enable
+    pcmMap[0] |= TXCLR | RXCLR;
+    sleep(1);
+    
+    printf("PCM CS_A reg is initialized as %x\n", pcmMap[0]);
+    
+    // getting physical address of pcm cs reg
+    uint32_t pcmCSPhysicalAddr = BUS_BASE + PCM_BASE_OFFSET;
+    
+    DMAControlPageWrapper cbWrapper = initDMAControlPage(1);
+    initDMAControlBlock(&cbWrapper, 0, (uint32_t)busPage, pcmCSPhysicalAddr, 1);
+    initDMAChannel((DMAControlBlock *)(cbWrapper.pages.busAddr), DMA_TEST_CHANNEL);
+    startDMAChannel(DMA_TEST_CHANNEL);
+    
+    sleep(1);
+    
+    printf("(After transfer) PCM CS_A reg reads %x\n", pcmMap[0]);
+    
+    clearUncachedMemView(&pages);
+    clearDMAControlPage(&cbWrapper);
+    clearMemMap((void*)pcmMap, PCM_BASE_MAPSIZE);
+}
+
 int main(int argc, char ** argv) {
     dmaMap = initMemMap(DMA_BASE_OFFSET, DMA_MAPSIZE);
 
@@ -313,6 +277,10 @@ int main(int argc, char ** argv) {
                 dma_test_3();
                 break;
             }
+            case 4: {
+                dma_test_4();
+                break;
+            }
             default: {
                 dma_test_0();
                 break;
@@ -323,6 +291,7 @@ int main(int argc, char ** argv) {
         dma_test_1();
         dma_test_2();
         dma_test_3();
+        dma_test_4();
     }
 
     munmap((void *)dmaMap, DMA_MAPSIZE);

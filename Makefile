@@ -18,8 +18,8 @@ IFLAGS = -I$(VC_IDIR)
 LFLAGS = -L$(VC_LDIR) -lbcm_host 
 
 DMA_TEST_DEPS = bcm/dma.h bcm/pimem.h globals.h 
-DMA_TEST_OBJS = bcm/dma.o bcm/pimem.o globals.o
-DMA_TEST_CFILES = bcm/dma.c bcm/pimem.cpp globals.c
+DMA_TEST_OBJS = bcm/dma.o bcm/pimem.o 
+DMA_TEST_CFILES = bcm/dma.c bcm/pimem.cpp 
 
 MAIN_DEPS = $(DMA_TEST_DEPS) bcm/gpio.h bcm/clk.h bcm/pcm.h 
 MAIN_OBJS = $(DMA_TEST_OBJS) bcm/gpio.o bcm/clk.o bcm/pcm.o

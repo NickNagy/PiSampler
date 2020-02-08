@@ -31,9 +31,4 @@
 #define ERROR_MSG(msg) printf("ERROR: %s\n", msg); 
 #define FATAL_ERROR(msg) { ERROR_MSG(msg); exit(1); }
 
-void * getAlignedPointer(void * ptr, int32_t byteAlignment);
-
-// from pigpio.c --> https://github.com/joan2937/pigpio/blob/master/pigpio.c
-unsigned gpioDelay(uint32_t micros);
-
 #endif

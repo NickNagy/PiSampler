@@ -68,20 +68,6 @@ volatile uint32_t * initMemMap(uint32_t offset, uint32_t size);
 
 void clearMemMap(void * map, uint32_t size);
 
-/* pageInfo interface */
-
-void * initLockedMem(uint32_t size);
-
-void clearLockedMem(void * mem, uint32_t size);
-
-void initVirtPhysPage(void ** virtAddr, void ** physAddr);
-
-void clearVirtPhysPage(void * virtAddr);
-
-uintptr_t virtToPhys(void * virtAddr);
-
-uintptr_t virtToUncachedBus(void * virtAddr, bool useDirectUncached);
-
 /* Mailbox interface (source: https://github.com/Wallacoloo/Raspberry-Pi-DMA-Example/issues/3)*/
 
 uintptr_t busToPhys(void * busAddr, bool useDirectUncached);
