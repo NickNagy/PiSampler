@@ -1,0 +1,33 @@
+g++ dma-test.c bcm/dma.c bcm/pimem.cpp -I/opt/vc/include -L/opt/vc/lib -lbcm_host  -g  -o dma-test 
+
+sudo ./dma-test
+
+
+DMA TEST 0:
+	 use a single DMA control block to write 'hello world!' to the destination.
+(Before transfer) destination reads: 
+successful return
+(After transfer) destination reads: 'hello world!'
+
+DMA TEST 1:
+	Use 2 DMA control blocks to change the string 'uh-oh world!' to 'hello world!' and write it to the destination.
+(Before transfer) destination reads: 
+successful return
+(After transfer) destination reads: hello world!
+
+DMA TEST 2:
+	Stop two DMA control blocks who point to each other from looping infinitely by writing 0 to one of their nextControlBlockAddr fields.
+(Before transfer) destination reads: 
+successful return
+(After transfer) destination reads: hello world!
+
+DMA Test 3:
+	Change the bottom byte of a 'reg' without manipulating its other bits.
+successful return
+(After transfer) reg reads: ffffff00
+
+DMA Test 4:
+	Update the bottom byte of the PCM CS_A reg.
+PCM CS_A reg is initialized as 22a6201
+successful return
+(After transfer) PCM CS_A reg reads 2a6000
