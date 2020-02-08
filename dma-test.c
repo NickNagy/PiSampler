@@ -271,17 +271,46 @@ void dma_test_2() {
     clearDMAControlPage(&cbWrapper);  
 }
 
+void dma_test_3() {
+    printf("DMA Test 3:\n\tChange the bottom byte of a 'reg' without manipulating its other bits.\n");
+    void* virtPage, *busPage;
+    VirtToBusPages pages = initUncachedMemView(BCM_PAGESIZE, USE_DIRECT_UNCACHED);
+    virtPage = pages.virtAddr;
+    busPage = (void*)pages.busAddr;
+    uint32_t* reg = (uint32_t*)virtPage;
+    *reg = 0xFFFFFFFF;
+    *(reg + 1) = 0;
+    
+    DMAControlPageWrapper cbWrapper = initDMAControlPage(1);
+    
+    // move byte 4 to byte 0
+    initDMAControlBlock(&cbWrapper, 0, (uint32_t)((uint8_t*)busPage + 4), (uint32_t)busPage, 1);
+    initDMAChannel((DMAControlBlock *)(cbWrapper.pages.busAddr), DMA_TEST_CHANNEL);
+    startDMAChannel(DMA_TEST_CHANNEL);
+    
+    sleep(1);
+    
+    printf("(After transfer) reg reads: %x\n", *reg);
+    
+    clearUncachedMemView(&pages);
+    clearDMAControlPage(&cbWrapper);
+}
+
 int main(int argc, char ** argv) {
     dmaMap = initMemMap(DMA_BASE_OFFSET, DMA_MAPSIZE);
 
     if (argc > 1) {
-        switch((int)argv[1]) {
+        switch(atoi(argv[1])) {
             case 1: {
                 dma_test_1();
                 break;
             }
             case 2: {
                 dma_test_2();
+                break;
+            }
+            case 3: {
+                dma_test_3();
                 break;
             }
             default: {
@@ -293,6 +322,7 @@ int main(int argc, char ** argv) {
         dma_test_0();
         dma_test_1();
         dma_test_2();
+        dma_test_3();
     }
 
     munmap((void *)dmaMap, DMA_MAPSIZE);
