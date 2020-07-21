@@ -1,5 +1,11 @@
 # PiSampler
 
+**(7/21/2020) PLEASE READ:**
+
+This project was abandoned after I learned that the Pi (at least the B+ model) does not support simultaneous in-out digital audio, and I've since been developing a similar project for an STM32 ARM processor here: https://github.com/NickNagy/Cortet
+
+The /bcm files may still serve some alternative use in the future. 
+
 **Last updated (12/29/2019)**
 
 **Quick disclaimer:** early commits of BCM control files were created and developed before I became aware of the open source pigpio library: https://github.com/joan2937/pigpio. I have built the base of my program off of my own interpretation of / approach toward the BCM2385 spec, but have referred to joan et al's implementation at times that I've run into dead ends. I neither want to pretend like these files are anything less than my own work, nor do I want to ignore credit where it is due. Any functions pulled directly from joan et al's files will be cited accordingly. - NN 
